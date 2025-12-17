@@ -11,13 +11,13 @@ export class HealthService {
 
   async checkDatabase() {
     try {
-      const result = await this.connection.query<Array<{time: string; version: string}>>(
-        'SELECT NOW() as time, version() as version'
+      const result = await this.connection.query<Array<{ time: string; version: string }>>(
+        'SELECT NOW() as time, version() as version',
       );
-      
+
       return {
         status: '200',
-				api: 'working',
+        api: 'working',
         database: 'Connected',
         version: result[0].version,
       };
@@ -48,7 +48,7 @@ export class HealthService {
 
   async performHealthChecks() {
     const databaseCheck = await this.checkDatabase();
-    
+
     return {
       database: databaseCheck,
       uptime: process.uptime(),
