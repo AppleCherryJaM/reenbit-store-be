@@ -1,7 +1,10 @@
 type ApiStatus = 'working' | 'error';
 type DataBaseStatus = 'connected' | 'error';
 
-export type UserRole = 'USER' | 'ADMIN';
+export enum UserRole {
+  'USER',
+  'ADMIN',
+}
 
 export type HealthType = {
   status: number;

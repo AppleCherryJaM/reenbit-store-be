@@ -22,13 +22,10 @@ export class BlacklistService {
     setInterval(() => this.cleanupExpiredTokens(), 6 * 60 * 60 * 1000);
   }
 
-  async addToBlacklist(
-    token: string, 
-    reason: string = 'logout'
-  ): Promise<BlacklistedToken | null> {
+  async addToBlacklist(token: string, reason: string = 'logout'): Promise<BlacklistedToken | null> {
     try {
       const decoded = this.jwtService.decode(token) as JwtDecodedPayload;
-      
+
       if (!decoded || !decoded.exp) {
         throw new Error('Invalid token: cannot decode');
       }
@@ -54,10 +51,10 @@ export class BlacklistService {
         expiresAt,
         reason,
       });
-      
+
       const savedToken = await this.blacklistRepository.save(blacklistedToken);
       console.log(`Token for user ${decoded.sub} added to blacklist (reason: ${reason})`);
-      
+
       return savedToken;
     } catch (error) {
       console.error('Failed to blacklist token:', error);
@@ -70,7 +67,7 @@ export class BlacklistService {
       const blacklistedToken = await this.blacklistRepository.findOne({
         where: { token },
       });
-      
+
       if (!blacklistedToken) {
         return false;
       }
@@ -87,22 +84,18 @@ export class BlacklistService {
     }
   }
 
-  logoutUser(
-    userId: number, 
-    reason: string = 'logout'
-  ): { invalidatedCount: number } {
+  logoutUser(userId: number, reason: string = 'logout'): { invalidatedCount: number } {
     try {
       // TO DO: create kill all user sessions
-      
+
       console.log(`User ${userId} logged out (reason: ${reason})`);
-      
 
       // For now, we simply return 0, since we don't have a session table.
       // In the future, we might implement:
       // 1. A user_sessions table
       // 2. Adding all active refresh tokens to the blacklist
       // 3. Marking all sessions as inactive
-      
+
       return { invalidatedCount: 0 };
     } catch (error) {
       console.error('Failed to logout user:', error);
@@ -124,12 +117,12 @@ export class BlacklistService {
         .delete()
         .where('expires_at < :now', { now: new Date() })
         .execute();
-      
+
       const deletedCount = result.affected || 0;
       if (deletedCount > 0) {
         console.log(`Cleaned up ${deletedCount} expired tokens`);
       }
-      
+
       return deletedCount;
     } catch (error) {
       console.error('Failed to cleanup expired tokens:', error);
@@ -143,7 +136,7 @@ export class BlacklistService {
     expired: number;
   }> {
     const now = new Date();
-    
+
     const [total, active, expired] = await Promise.all([
       this.blacklistRepository.count(),
       this.blacklistRepository.count({

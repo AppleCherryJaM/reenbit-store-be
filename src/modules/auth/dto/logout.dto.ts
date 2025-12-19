@@ -3,11 +3,10 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class LogoutDto {
   @ApiProperty({ 
-    example: 'refresh_token_here', 
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     required: false,
-    description: 'Refresh token to invalidate (optional)' 
+    description: 'Refresh token to invalidate (optional)'
   })
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   @IsOptional()
   refresh_token?: string;
 }
