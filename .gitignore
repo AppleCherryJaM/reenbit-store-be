@@ -20,3 +20,6 @@
 
 /src/modules/products/products.controller.spec.ts
 /src/modules/products/products.service.spec.ts
+
+/src/modules/health/health.controller.spec.ts
+/src/modules/health/health.service.spec.ts
