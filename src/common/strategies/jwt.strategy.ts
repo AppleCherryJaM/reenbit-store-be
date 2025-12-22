@@ -20,8 +20,8 @@ interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
-    private readonly authService: AuthService, 
-    private readonly blackListService: BlacklistService
+    private readonly authService: AuthService,
+    private readonly blackListService: BlacklistService,
   ) {
     const secret = configService.get<string>(jwtConstants.jwtAccessSecret);
 
@@ -38,13 +38,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload) {
     const user = await this.authService.validateUserById(payload.sub);
-    
+
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
     const isBlacklisted = await this.blackListService.isTokenBlacklisted(payload.jti);
-    
+
     if (isBlacklisted) {
       throw new UnauthorizedException('Token revoked');
     }

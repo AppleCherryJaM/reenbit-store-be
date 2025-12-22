@@ -20,7 +20,10 @@ export class UsersService {
       throw new ConflictException('Email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(createUserDto.password, parseInt(process.env.SALT_ROUNDS || '10'));
+    const hashedPassword = await bcrypt.hash(
+      createUserDto.password,
+      parseInt(process.env.SALT_ROUNDS || '10'),
+    );
 
     const user = this.usersRepository.create({
       ...createUserDto,

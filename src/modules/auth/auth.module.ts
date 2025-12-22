@@ -24,11 +24,11 @@ import { timeConverter } from '@/common/utils/utils';
       useFactory: (configService: ConfigService) => {
         const expiresIn = configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m');
         const expiresInSeconds = timeConverter(expiresIn);
-        
+
         return {
           secret: configService.get<string>(`${jwtConstants.jwtAccessSecret}`),
-          signOptions: { 
-            expiresIn: expiresInSeconds
+          signOptions: {
+            expiresIn: expiresInSeconds,
           },
         };
       },

@@ -7,7 +7,3 @@ export type HealthType = {
   database: DataBaseStatus;
 };
 
-export enum UserRole {
-  'USER',
-  'ADMIN',
-}

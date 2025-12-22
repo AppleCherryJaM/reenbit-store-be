@@ -13,12 +13,16 @@ import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot({ throttlers: [{
-      ttl: 60000, // 60 seconds
-      limit: 10,  // 10 requests per ttl
-      ignoreUserAgents: [/curl/i, /Postman/i], // for testing purposes
-    }]}),
-    
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000, // 60 seconds
+          limit: 10, // 10 requests per ttl
+          ignoreUserAgents: [/curl/i, /Postman/i], // for testing purposes
+        },
+      ],
+    }),
+
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',

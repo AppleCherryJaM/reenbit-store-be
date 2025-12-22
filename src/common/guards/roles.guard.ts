@@ -9,8 +9,8 @@ export class RolesGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
-      context.getHandler(), 
-      context.getClass(),  
+      context.getHandler(),
+      context.getClass(),
     ]);
 
     if (!requiredRoles || requiredRoles.length === 0) {
@@ -19,8 +19,8 @@ export class RolesGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest();
 
-    const hasRole = requiredRoles.some(role => user?.role === role);
-    
+    const hasRole = requiredRoles.some((role) => user?.role === role);
+
     if (!hasRole) {
       throw new ForbiddenException('You do not have permission to access this resource');
     }
