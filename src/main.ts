@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -8,6 +9,8 @@ import { corsConfig, port } from './main.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  app.use(helmet());
 
   app.enableCors(corsConfig);
 
@@ -40,6 +43,21 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+
+  const requiredEnvVars = [
+    'JWT_ACCESS_SECRET',
+    'JWT_REFRESH_SECRET',
+    'DB_HOST',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'DB_DATABASE',
+  ];
+
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      throw new Error(`Missing required environment variable: ${envVar}`);
+    }
+  }
 
   if (process.env.NODE_ENV !== 'production') {
     try {

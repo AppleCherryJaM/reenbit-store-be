@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { v4 as uuid4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -117,29 +118,29 @@ export class AuthService {
   }
 
   async logout(userId: number, refreshToken?: string): Promise<{ 
-  message: string; 
-  invalidatedCount?: number;
-}> {
-  try {
-    let invalidatedCount = 0;
+    message: string; 
+    invalidatedCount?: number;
+  }> {
+    try {
+      let invalidatedCount = 0;
 
-    if (refreshToken) {
-      await this.blacklistService.addToBlacklist(refreshToken);
-      invalidatedCount++;
+      if (refreshToken) {
+        await this.blacklistService.addToBlacklist(refreshToken);
+        invalidatedCount++;
+      }
+
+      const result = this.blacklistService.logoutUser(userId);
+      invalidatedCount += result.invalidatedCount;
+      
+      return { 
+        message: 'Logged out successfully',
+        invalidatedCount
+      };
+    } catch (error) {
+      console.error('Logout failed:', error);
+      return { message: 'Logged out with errors' };
     }
-
-    const result = this.blacklistService.logoutUser(userId);
-    invalidatedCount += result.invalidatedCount;
-    
-    return { 
-      message: 'Logged out successfully',
-      invalidatedCount
-    };
-  } catch (error) {
-    console.error('Logout failed:', error);
-    return { message: 'Logged out with errors' };
   }
-}
 
   async validateUserById(id: number): Promise<User | null> {
     try {
@@ -152,7 +153,7 @@ export class AuthService {
   private generateAccessToken(payload: JwtPayload): string {
     const expiresIn = parseInt(process.env.JWT_ACCESS_EXPIRES_IN || '900');
 
-    return this.jwtService.sign(payload as any, {
+    return this.jwtService.sign({...payload, jti: uuid4()}, {
       secret: process.env.JWT_ACCESS_SECRET || 'default_access_secret',
       expiresIn,
     });
