@@ -10,6 +10,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { ImportModule } from './modules/import/import.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { HealthModule } from './modules/health/health.module';
     ProductsModule,
     AuthModule,
     HealthModule,
+    ImportModule
   ],
   controllers: [AppController],
   providers: [AppService],
