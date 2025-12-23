@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './modules/users/users.module';
@@ -12,9 +13,20 @@ import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000, // 60 seconds
+          limit: 10, // 10 requests per ttl
+          ignoreUserAgents: [/curl/i, /Postman/i], // for testing purposes
+        },
+      ],
+    }),
+
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      cache: true,
     }),
 
     TypeOrmModule.forRootAsync({
@@ -28,7 +40,9 @@ import { HealthModule } from './modules/health/health.module';
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
+        synchronize: process.env.NODE_ENV !== 'production',
+        migrations: ['dist/migrations/*{.ts,.js}'],
+        migrationsRun: true,
         ssl: {
           rejectUnauthorized: false,
         },

@@ -1,4 +1,3 @@
- 
 import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -18,6 +17,7 @@ import {
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { AuthResponse } from './types/auth.types';
+import { Throttle } from '@nestjs/throttler';
 
 interface RequestWithUser extends Request {
   user: {
@@ -34,6 +34,7 @@ interface RequestWithUser extends Request {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Throttle({ default: { limit: 3, ttl: 10000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

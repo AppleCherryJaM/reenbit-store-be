@@ -30,6 +30,9 @@ import {
   ApiBadRequestResponse
 } from '@nestjs/swagger';
 import { RegisterResponse } from '../auth/types/auth.types';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { roles } from '@/common/utils/jwt.constants';
 
 @ApiTags('users')
 @Controller('users')
@@ -53,9 +56,9 @@ export class UsersController {
     return result;
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(roles.admin)
   @ApiBearerAuth('JWT-auth')
-  @Get()
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiOkResponse({ 
     description: 'List of users',
@@ -63,6 +66,7 @@ export class UsersController {
   })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
   @ApiForbiddenResponse({ description: 'Forbidden - Admin only' })
+  @Get()
   async findAll() {
     const users = await this.usersService.findAll();
     return users.map(user => {
@@ -74,7 +78,6 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', type: Number, description: 'User ID' })
   @ApiOkResponse({ 
@@ -83,6 +86,7 @@ export class UsersController {
   })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const user = await this.usersService.findById(id);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -92,7 +96,6 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @Put(':id')
   @ApiOperation({ summary: 'Update user' })
   @ApiParam({ name: 'id', type: Number, description: 'User ID' })
   @ApiBody({ type: UpdateUserDto })
@@ -103,6 +106,7 @@ export class UsersController {
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiConflictResponse({ description: 'Email already exists' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @Put(':id')
   async update(@Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto) {
     const user = await this.usersService.update(id, updateUserDto);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -110,9 +114,9 @@ export class UsersController {
     return result;
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(roles.admin)
   @ApiBearerAuth('JWT-auth')
-  @Delete(':id')
   @ApiOperation({ summary: 'Delete user' })
   @ApiParam({ name: 'id', type: Number, description: 'User ID' })
   @ApiOkResponse({ 
@@ -125,6 +129,7 @@ export class UsersController {
   })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized' })
+  @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
     await this.usersService.delete(id);
     return { message: 'User deleted successfully' };

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { BlacklistService } from './blacklist.service';
@@ -9,17 +10,29 @@ import { BlacklistedToken } from './entities/blacklisted-token.entity';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { JwtRefreshStrategy } from '../../common/strategies/jwt-refresh.strategy';
+import { jwtConstants } from '@/common/utils/jwt.constants';
+import { timeConverter } from '@/common/utils/utils';
 
 @Module({
   imports: [
     UsersModule,
     PassportModule,
-    TypeOrmModule.forFeature([BlacklistedToken]), // Добавьте эту строку!
-    JwtModule.register({
-      secret: process.env.JWT_ACCESS_SECRET || 'default_access_secret',
-      signOptions: { 
-        expiresIn: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || '900')
+    ConfigModule,
+    TypeOrmModule.forFeature([BlacklistedToken]),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const expiresIn = configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m');
+        const expiresInSeconds = timeConverter(expiresIn);
+
+        return {
+          secret: configService.get<string>(`${jwtConstants.jwtAccessSecret}`),
+          signOptions: {
+            expiresIn: expiresInSeconds,
+          },
+        };
       },
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],
