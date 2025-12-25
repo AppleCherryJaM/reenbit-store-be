@@ -49,7 +49,7 @@ export class ImportController {
     const result = await this.importService.importFromXml(fileContent);
 
     return {
-      message: `Import completed: ${result.categories} categories and ${result.brands} brands created, ${result.errors} errors`,
+      message: `Import completed: ${result.products} products imported, ${result.errors} errors`,
     };
   }
 }

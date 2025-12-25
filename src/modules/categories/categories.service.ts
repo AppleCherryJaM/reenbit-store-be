@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
 
 @Injectable()
@@ -34,6 +34,23 @@ export class CategoriesService {
       await this.categoryRepository.save(category);
     }
     return category;
+  }
+
+  async bulkFindOrCreateCategories(names: string[]): Promise<Category[]> {
+
+    const existing = await this.categoryRepository.find({ where: { name: In(names) } });
+
+    const existingNames = new Set(existing.map(c => c.name));
+    const toCreate = names.filter(name => !existingNames.has(name));
+
+    if (toCreate.length > 0) {
+      const created = await this.categoryRepository.save(
+        toCreate.map(name => this.categoryRepository.create({ name }))
+      );
+      existing.push(...created);
+    }
+
+    return existing;
   }
 
   async create(name: string, description?: string): Promise<Category> {
