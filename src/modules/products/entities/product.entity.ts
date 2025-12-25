@@ -16,7 +16,7 @@ export class Product {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true }) 
+  @Column({ unique: true })
   name: string;
 
   @Column({ type: 'text', nullable: true })
@@ -27,6 +27,10 @@ export class Product {
 
   @Column({ default: 0 })
   stock: number;
+
+  // 👇 ДОБАВЛЕНО: поле для изображений
+  @Column('text', { array: true, default: [] })
+  images: string[];
 
   @ManyToOne(() => Brand, (brand) => brand.products)
   brand: Brand;
