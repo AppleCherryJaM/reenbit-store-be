@@ -1,4 +1,56 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import { BrandsService } from './brands.service';
+import { Brand } from './entities/brand.entity';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('brands')
 @Controller('brands')
-export class BrandsController {}
+export class BrandsController {
+  constructor(private brandsService: BrandsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Get all brands' })
+  @ApiResponse({ status: 200, description: 'List of brands', type: [Brand] })
+  findAll(): Promise<Brand[]> {
+    return this.brandsService.findAll();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get brand by ID' })
+  @ApiResponse({ status: 200, description: 'Brand found', type: Brand })
+  @ApiResponse({ status: 404, description: 'Brand not found' })
+  findById(@Param('id', ParseIntPipe) id: number): Promise<Brand> {
+    return this.brandsService.findById(id);
+  }
+
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Post()
+  // @ApiOperation({ summary: 'Create a new brand' })
+  // @ApiBearerAuth('JWT-auth')
+  // @ApiResponse({ status: 201, description: 'Brand created', type: Brand })
+  // @ApiResponse({ status: 409, description: 'Brand name already exists' })
+  // create(@Body('name') name: string): Promise<Brand> {
+  //   return this.brandsService.create(name);
+  // }
+
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Put(':id')
+  // @ApiOperation({ summary: 'Update brand' })
+  // @ApiBearerAuth('JWT-auth')
+  // @ApiResponse({ status: 200, description: 'Brand updated', type: Brand })
+  // @ApiResponse({ status: 404, description: 'Brand not found' })
+  // @ApiResponse({ status: 409, description: 'Brand name already exists' })
+  // update(@Param('id', ParseIntPipe) id: number, @Body('name') name: string): Promise<Brand> {
+  //   return this.brandsService.update(id, name);
+  // }
+
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @Delete(':id')
+  // @ApiOperation({ summary: 'Delete brand' })
+  // @ApiBearerAuth('JWT-auth')
+  // @ApiResponse({ status: 200, description: 'Brand deleted' })
+  // @ApiResponse({ status: 404, description: 'Brand not found' })
+  // delete(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  //   return this.brandsService.delete(id);
+  // }
+}

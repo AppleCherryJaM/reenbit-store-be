@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Brand } from './entities/brand.entity';
 
 @Injectable()
@@ -34,5 +34,19 @@ export class BrandsService {
 
   async findAll(): Promise<Brand[]> {
     return this.brandRepository.find();
+  }
+
+  async bulkFindOrCreateBrands(names: string[]): Promise<Brand[]> {
+    const existing = await this.brandRepository.findBy({ name: In(names) });
+    const existingNames = new Set(existing.map(b => b.name));
+    const toCreate = names
+      .filter(name => !existingNames.has(name))
+      .map(name => this.brandRepository.create({ name }));
+
+    if (toCreate.length > 0) {
+      const created = await this.brandRepository.save(toCreate, { chunk: 100 });
+      existing.push(...created);
+    }
+    return existing;
   }
 }

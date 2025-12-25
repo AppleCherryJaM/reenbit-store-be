@@ -4,6 +4,6 @@ export class XmlProductDto {
   price: number;
   stock: number;
   images: string[];
-  category: string; 
-  brand: string;    
+  categoryNames: string[]; 
+  brandName: string;    
 }

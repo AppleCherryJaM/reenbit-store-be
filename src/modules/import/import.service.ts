@@ -2,10 +2,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { Injectable, Logger } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
-import { BrandsService } from '../brands/brands.service';
-import { CategoriesService } from '../categories/categories.service';
+import { ProductsService } from '../products/products.service';
+import { XmlProductDto } from './dto/xml-product.dto';
 
 interface YmlOffer {
   '@_id'?: string;
@@ -14,7 +15,7 @@ interface YmlOffer {
   price?: string;
   '@_available'?: string;
   picture?: string | string[];
-  categoryId?: string;
+  categoryId?: string | number | (string | number)[];
   vendor?: string;
 }
 
@@ -23,11 +24,46 @@ export class ImportService {
   private readonly logger = new Logger(ImportService.name);
 
   constructor(
-    private categoriesService: CategoriesService,
-    private brandsService: BrandsService,
+    private productsService: ProductsService,
   ) {}
 
-  async importFromXml(xmlContent: string): Promise<{ categories: number; brands: number; errors: number }> {
+  private extractImages(offer: YmlOffer): string[] {
+    if (!offer.picture) return [];
+    const pictures = Array.isArray(offer.picture) ? offer.picture : [offer.picture];
+    return pictures
+      .map(url => url?.trim())
+      .filter(url => url && url.length > 0);
+  }
+
+  private parseCategories(parsedData: any): Map<string, string> {
+    const categoryMap = new Map<string, string>();
+
+    const categoriesNode = parsedData.yml_catalog?.shop?.categories?.category;
+    
+    if (!categoriesNode) return categoryMap;
+
+    const categories = Array.isArray(categoriesNode) ? categoriesNode : [categoriesNode];
+    
+    for (const cat of categories) {
+      const ymlId = cat['@_id']?.toString();
+
+      let name = '';
+      
+      if (typeof cat === 'string') {
+        name = cat;
+      } else if (typeof cat === 'object' && cat !== null) {
+        name = cat['#text'] || cat['_'] || JSON.stringify(cat); // fallback
+      }
+
+      if (ymlId && name) {
+        categoryMap.set(ymlId, name.trim());
+      }
+    }
+
+    return categoryMap;
+  }
+
+  async importFromXml(xmlContent: string): Promise<{ products: number; errors: number }> {
     const parserOptions = {
       ignoreAttributes: false,
       attributeNamePrefix: '@_',
@@ -46,57 +82,54 @@ export class ImportService {
       throw new Error('Invalid XML format');
     }
 
+    const ymlCategoryMap = this.parseCategories(parsedData);
+
     let offers: YmlOffer[] = [];
     if (parsedData.yml_catalog?.shop?.offers?.offer) {
       const offerData = parsedData.yml_catalog.shop.offers.offer;
       offers = Array.isArray(offerData) ? offerData : [offerData];
     } else {
-      throw new Error('Unsupported format: expected YML (Yandex Market) with English tags');
+      throw new Error('Unsupported format: expected YML (Yandex Market)');
     }
 
-    const seenCategories = new Set<string>();
-    const seenBrands = new Set<string>();
     let errors = 0;
+    const productsToUpsert = [] as Array<XmlProductDto>;
 
     for (const offer of offers) {
       try {
-
-        if (offer.vendor) {
-          seenBrands.add(offer.vendor.trim());
+        let rawCategoryIds = offer.categoryId;
+        if (rawCategoryIds == null) {
+          rawCategoryIds = ['Uncategorized'];
+        } else if (!Array.isArray(rawCategoryIds)) {
+          rawCategoryIds = [rawCategoryIds];
         }
 
-        if (offer.categoryId) {
+        const categoryNames = rawCategoryIds.map(id => {
+          const idStr = String(id).trim();
+          return ymlCategoryMap.get(idStr) || idStr;
+        });
 
-          seenCategories.add(offer.categoryId.trim());
-        }
+        productsToUpsert.push({
+          name: (offer.name ?? 'Unnamed Product').trim(),
+          description: (offer.description ?? '').trim(),
+          price: parseFloat(offer.price ?? '0') || 0,
+          stock: parseInt(offer['@_available'] ?? '0', 10) || 0,
+          images: this.extractImages(offer),
+          categoryNames,
+          brandName: (offer.vendor ?? 'Unknown Brand').trim(),
+        });
       } catch (error) {
         errors++;
-        this.logger.warn(`Failed to process offer`, { error });
+        this.logger.warn(`Parse error: ${error.message}`, { offer });
       }
     }
 
-    let brandCount = 0;
-    for (const brandName of seenBrands) {
-      try {
-        await this.brandsService.findOrCreateByName(brandName);
-        brandCount++;
-      } catch (error) {
-        errors++;
-        this.logger.warn(`Brand creation failed: ${brandName}`, error);
-      }
+    try {
+      await this.productsService.bulkUpsert(productsToUpsert);
+      return { products: productsToUpsert.length, errors };
+    } catch (error) {
+      this.logger.error('Bulk import failed', error);
+      return { products: 0, errors: productsToUpsert.length + errors };
     }
-
-    let categoryCount = 0;
-    for (const categoryName of seenCategories) {
-      try {
-        await this.categoriesService.findOrCreateByName(categoryName);
-        categoryCount++;
-      } catch (error) {
-        errors++;
-        this.logger.warn(`Category creation failed: ${categoryName}`, error);
-      }
-    }
-
-    return { categories: categoryCount, brands: brandCount, errors };
   }
 }
