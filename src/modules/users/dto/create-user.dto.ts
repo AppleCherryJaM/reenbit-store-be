@@ -42,4 +42,6 @@ export class CreateUserDto {
   })
   @IsOptional()
   avatarUrl?: string;
+
+  isVerified: boolean;
 }

@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { corsConfig, port } from './main.config';
+import { raw } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,6 +21,12 @@ async function bootstrap() {
       transform: true,
       forbidNonWhitelisted: true,
     }),
+  );
+
+  app.use('/admin/import', 
+    raw({ 
+      type: ['application/xml', 'text/xml', 'text/yaml'] 
+    })
   );
 
   const config = new DocumentBuilder()

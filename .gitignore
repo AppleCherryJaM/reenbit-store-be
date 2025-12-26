@@ -23,3 +23,5 @@
 
 /src/modules/health/health.controller.spec.ts
 /src/modules/health/health.service.spec.ts
+
+/src/seeds
