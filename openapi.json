@@ -957,6 +957,44 @@
         ]
       }
     },
+    "/auth/verify-email": {
+      "post": {
+        "description": "Verify user email using verification token",
+        "operationId": "AuthController_verifyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "message": "Email verified successfully"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired token"
+          }
+        },
+        "summary": "Verify email address",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_healthCheck",
@@ -1253,6 +1291,19 @@
             "description": "Refresh token to invalidate (optional)"
           }
         }
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "example": "a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8",
+            "description": "Verification token"
+          }
+        },
+        "required": [
+          "token"
+        ]
       }
     }
   }

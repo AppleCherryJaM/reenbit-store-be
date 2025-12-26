@@ -11,6 +11,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { ImportModule } from './modules/import/import.module';
+import { MailService } from './modules/mail/mail.service';
 
 @Module({
   imports: [
@@ -60,6 +61,6 @@ import { ImportModule } from './modules/import/import.module';
     ImportModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, MailService],
 })
 export class AppModule {}

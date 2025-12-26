@@ -34,6 +34,9 @@ export class User {
   @MinLength(6)
   password: string;
 
+  @Column({ default: false, name: 'is_verified' })
+  isVerified: boolean;
+
   @Column({ default: true, name: 'is_active' })
   isActive: boolean;
 
