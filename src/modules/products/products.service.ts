@@ -204,7 +204,7 @@ export class ProductsService {
     
     const { brandId, categoryIds, ...updateData } = updateProductDto;
 
-    if (brandId !== undefined) {
+    if (brandId) {
       const brand = await this.brandRepository.findOneBy({ id: brandId });
       if (!brand) {
         throw new NotFoundException(`Brand with ID ${brandId} not found`);
