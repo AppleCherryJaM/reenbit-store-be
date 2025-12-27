@@ -19,6 +19,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Roles } from '@/common/decorators/roles.decorator';
 
 @ApiTags('categories')
 @Controller('categories')
@@ -41,20 +42,21 @@ export class CategoriesController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Post()
-  @ApiOperation({ summary: 'Create a new category' })
-  @ApiBearerAuth('JWT-auth')
-  @ApiResponse({ status: 201, description: 'Category created', type: Category })
-  @ApiResponse({ status: 409, description: 'Category name already exists' })
+  @ApiOperation({ summary: 'Create category' })
+  @ApiBearerAuth()
+  @ApiResponse({ status: 201, type: Category })
   create(@Body('name') name: string, @Body('description') description?: string): Promise<Category> {
     return this.categoriesService.create(name, description);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Put(':id')
   @ApiOperation({ summary: 'Update category' })
-  @ApiBearerAuth('JWT-auth')
-  @ApiResponse({ status: 200, description: 'Category updated', type: Category })
+  @ApiBearerAuth()
+  @ApiResponse({ status: 200, type: Category })
   @ApiResponse({ status: 404, description: 'Category not found' })
   @ApiResponse({ status: 409, description: 'Category name already exists' })
   update(
@@ -66,9 +68,10 @@ export class CategoriesController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete category' })
-  @ApiBearerAuth('JWT-auth')
+  @ApiBearerAuth()
   @ApiResponse({ status: 200, description: 'Category deleted' })
   @ApiResponse({ status: 404, description: 'Category not found' })
   delete(@Param('id', ParseIntPipe) id: number): Promise<void> {

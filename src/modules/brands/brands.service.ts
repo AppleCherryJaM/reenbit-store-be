@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Brand } from './entities/brand.entity';
@@ -47,6 +47,39 @@ export class BrandsService {
       const created = await this.brandRepository.save(toCreate, { chunk: 100 });
       existing.push(...created);
     }
+    
     return existing;
+  }
+
+  async create(name: string): Promise<Brand> {
+    const existing = await this.brandRepository.findOne({ where: { name } });
+    
+    if (existing) {
+      throw new ConflictException(`Brand "${name}" already exists`);
+    }
+    
+    const brand = this.brandRepository.create({ name });
+    return this.brandRepository.save(brand);
+  }
+
+  async update(id: number, name: string): Promise<Brand> {
+    const brand = await this.findById(id);
+
+    const existing = await this.brandRepository.findOne({ where: { name } });
+    
+    if (existing && existing.id !== id) {
+      throw new ConflictException(`Brand "${name}" already exists`);
+    }
+
+    brand.name = name;
+    return this.brandRepository.save(brand);
+  }
+
+  async delete(id: number): Promise<void> {
+    const result = await this.brandRepository.delete(id);
+    
+    if (result.affected === 0) {
+      throw new NotFoundException(`Brand with ID ${id} not found`);
+    }
   }
 }

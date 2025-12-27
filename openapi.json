@@ -258,7 +258,7 @@
         "parameters": [],
         "responses": {
           "201": {
-            "description": "Category created",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -266,17 +266,14 @@
                 }
               }
             }
-          },
-          "409": {
-            "description": "Category name already exists"
           }
         },
         "security": [
           {
-            "JWT-auth": []
+            "bearer": []
           }
         ],
-        "summary": "Create a new category",
+        "summary": "Create category",
         "tags": [
           "categories"
         ]
@@ -329,7 +326,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Category updated",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -347,7 +344,7 @@
         },
         "security": [
           {
-            "JWT-auth": []
+            "bearer": []
           }
         ],
         "summary": "Update category",
@@ -377,7 +374,7 @@
         },
         "security": [
           {
-            "JWT-auth": []
+            "bearer": []
           }
         ],
         "summary": "Delete category",
@@ -406,6 +403,31 @@
           }
         },
         "summary": "Get all brands",
+        "tags": [
+          "brands"
+        ]
+      },
+      "post": {
+        "operationId": "BrandsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Brand"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create brand",
         "tags": [
           "brands"
         ]
@@ -443,15 +465,126 @@
         "tags": [
           "brands"
         ]
+      },
+      "put": {
+        "operationId": "BrandsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Brand"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Brand not found"
+          },
+          "409": {
+            "description": "Brand name already exists"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update brand",
+        "tags": [
+          "brands"
+        ]
+      },
+      "delete": {
+        "operationId": "BrandsController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Brand deleted"
+          },
+          "404": {
+            "description": "Brand not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete brand",
+        "tags": [
+          "brands"
+        ]
       }
     },
     "/products": {
       "get": {
         "operationId": "ProductsController_findAll",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "brandId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "List of products with brand and categories",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -464,7 +597,153 @@
             }
           }
         },
-        "summary": "Get all products",
+        "summary": "Get all products (public)",
+        "tags": [
+          "products"
+        ]
+      },
+      "post": {
+        "operationId": "ProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "operationId": "ProductsController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "summary": "Get product by ID (public)",
+        "tags": [
+          "products"
+        ]
+      },
+      "put": {
+        "operationId": "ProductsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update product",
+        "tags": [
+          "products"
+        ]
+      },
+      "delete": {
+        "operationId": "ProductsController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product deleted"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete product",
         "tags": [
           "products"
         ]
@@ -841,6 +1120,14 @@
         "properties": {}
       },
       "Product": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateProductDto": {
         "type": "object",
         "properties": {}
       },
