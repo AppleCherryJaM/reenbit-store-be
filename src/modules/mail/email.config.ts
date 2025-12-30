@@ -25,3 +25,7 @@ export const createEmailList = (name: string, verificationUrl: string) => {
           </div>
         `
 }
+
+export const createEmailText = (name: string, verificationUrl: string) => {
+  return `Welcome to Reenbit Store, ${name}!\n\nPlease verify your email address by visiting: ${verificationUrl}\n\nThis link will expire in 24 hours.\n\nIf you did not create an account, please ignore this email.`
+}

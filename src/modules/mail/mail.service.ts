@@ -2,7 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
-import { createEmailList } from './email-list';
+import { createEmailList, createEmailText } from './email.config';
 
 @Injectable()
 export class MailService {
@@ -40,7 +40,7 @@ export class MailService {
         to: email,
         subject: 'Verify your email address',
         html: createEmailList(name, verificationUrl),
-        text: `Welcome to Reenbit Store, ${name}!\n\nPlease verify your email address by visiting: ${verificationUrl}\n\nThis link will expire in 24 hours.\n\nIf you did not create an account, please ignore this email.`,
+        text: createEmailText(name, verificationUrl),
       };
 
       const info = await this.transporter.sendMail(mailOptions);
