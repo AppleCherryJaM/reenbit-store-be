@@ -55,17 +55,15 @@ export class AuthService {
   }
 
   async validateUser(email: string, password: string): Promise<Omit<User, 'password'> | null> {
+    
     const user = await this.usersService.findByEmail(email);
-
-    if (user && !user.isVerified) {
+    
+    if (!user || !user.isVerified) {
       throw new UnauthorizedException('Email not verified');
     }
-
-    if (user && (await bcrypt.compare(password, user.password))) {
-      const result = user as Omit<User, 'password'>;
-      return result;
-    }
-    return null;
+    const isValid = await bcrypt.compare(password, user.password);
+    
+    return isValid ? user as Omit<User, 'password'> : null;
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
@@ -105,14 +103,8 @@ export class AuthService {
       throw new ConflictException('Email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(
-      registerDto.password,
-      parseInt(process.env.SALT_ROUNDS || '10'),
-    );
-
     const user = await this.usersService.create({
       ...registerDto,
-      password: hashedPassword,
       isVerified: false,
     });
 

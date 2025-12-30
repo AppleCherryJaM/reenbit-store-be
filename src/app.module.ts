@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { ImportModule } from './modules/import/import.module';
 import { MailService } from './modules/mail/mail.service';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -58,7 +59,8 @@ import { MailService } from './modules/mail/mail.service';
     ProductsModule,
     AuthModule,
     HealthModule,
-    ImportModule
+    ImportModule,
+    MailModule
   ],
   controllers: [AppController],
   providers: [AppService, MailService],

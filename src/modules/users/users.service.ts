@@ -14,15 +14,18 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+
     const existingUser = await this.findByEmail(createUserDto.email);
 
     if (existingUser) {
       throw new ConflictException('Email already exists');
     }
 
+    const saltRounds = parseInt(process.env.SALT_ROUNDS || '12');
+
     const hashedPassword = await bcrypt.hash(
       createUserDto.password,
-      parseInt(process.env.SALT_ROUNDS || '10'),
+      saltRounds,
     );
 
     const user = this.usersRepository.create({

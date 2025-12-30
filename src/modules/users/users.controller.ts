@@ -1,18 +1,14 @@
 import {
   Controller,
   Get,
-  Post,
   Body,
   Param,
   Put,
   Delete,
   ParseIntPipe,
   UseGuards,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { 
@@ -22,12 +18,10 @@ import {
   ApiParam,
   ApiBody,
   ApiOkResponse,
-  ApiCreatedResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiConflictResponse,
-  ApiBadRequestResponse
 } from '@nestjs/swagger';
 import { RegisterResponse } from '../auth/types/auth.types';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -38,23 +32,6 @@ import { roles } from '@/common/utils/jwt.constants';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiBody({ type: CreateUserDto })
-  @ApiCreatedResponse({ 
-    description: 'User successfully registered',
-    type: RegisterResponse
-  })
-  @ApiConflictResponse({ description: 'Email already exists' })
-  @ApiBadRequestResponse({ description: 'Validation error' })
-  async register(@Body() createUserDto: CreateUserDto) {
-    const user = await this.usersService.create(createUserDto);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...result } = user;
-    return result;
-  }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(roles.admin)

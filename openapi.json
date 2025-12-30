@@ -15,44 +15,6 @@
         ]
       }
     },
-    "/users/register": {
-      "post": {
-        "operationId": "UsersController_register",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateUserDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "User successfully registered",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegisterResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error"
-          },
-          "409": {
-            "description": "Email already exists"
-          }
-        },
-        "summary": "Register a new user",
-        "tags": [
-          "users"
-        ]
-      }
-    },
     "/users": {
       "get": {
         "operationId": "UsersController_findAll",
@@ -1057,42 +1019,6 @@
       }
     },
     "schemas": {
-      "CreateUserDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "user@example.com",
-            "description": "User email address"
-          },
-          "name": {
-            "type": "string",
-            "example": "John Doe",
-            "description": "User full name"
-          },
-          "password": {
-            "type": "string",
-            "example": "password123",
-            "minLength": 6,
-            "description": "User password"
-          },
-          "phone": {
-            "type": "string",
-            "example": "+1234567890",
-            "description": "User phone number"
-          },
-          "avatarUrl": {
-            "type": "string",
-            "example": "https://example.com/avatar.jpg",
-            "description": "User avatar URL"
-          }
-        },
-        "required": [
-          "email",
-          "name",
-          "password"
-        ]
-      },
       "RegisterResponse": {
         "type": "object",
         "properties": {
@@ -1297,8 +1223,8 @@
         "properties": {
           "token": {
             "type": "string",
-            "example": "a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8",
-            "description": "Verification token"
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "JWT verification token"
           }
         },
         "required": [
