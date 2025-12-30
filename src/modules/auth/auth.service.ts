@@ -1,5 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { v4 as uuid4 } from 'uuid';
 import { UsersService } from '../users/users.service';
@@ -9,24 +14,56 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../users/user.entity';
 import { AuthResponse, JwtPayload } from './types/auth.types';
 import { BlacklistService } from './blacklist.service';
+import { MailService } from '../mail/mail.service';
+import { VerificationPayload } from './dto/verification-payload.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly blacklistService: BlacklistService,
+    private readonly mailService: MailService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<Omit<User, 'password'> | null> {
-    const user = await this.usersService.findByEmail(email);
+  async verifyEmail(token: string): Promise<void> {
+    let payload: VerificationPayload;
 
-    if (user && (await bcrypt.compare(password, user.password))) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password: _, ...result } = user;
-      return result;
+    try {
+      payload = this.jwtService.verify(token, {
+        secret: process.env.JWT_VERIFICATION_SECRET || 'verification_secret',
+      });
+    } catch (error) {
+      this.logger.error(`email verification failed: ${error}`);
+      throw new UnauthorizedException('Invalid or expired verification token');
     }
-    return null;
+
+    const user = await this.usersService.findByEmail(payload.email);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.isVerified) {
+      throw new ConflictException('Email already verified');
+    }
+
+    user.isVerified = true;
+    await this.usersService.update(user.id, { isVerified: true });
+  }
+
+  async validateUser(email: string, password: string): Promise<Omit<User, 'password'> | null> {
+    
+    const user = await this.usersService.findByEmail(email);
+    
+    if (!user || !user.isVerified) {
+      throw new UnauthorizedException('Email not verified');
+    }
+    const isValid = await bcrypt.compare(password, user.password);
+    
+    return isValid ? user as Omit<User, 'password'> : null;
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
@@ -68,11 +105,24 @@ export class AuthService {
 
     const user = await this.usersService.create({
       ...registerDto,
-      phone: registerDto.phone,
+      isVerified: false,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...result } = user;
+    try {
+      const verificationToken = this.jwtService.sign(
+        { sub: user.id, email: user.email },
+        {
+          secret: process.env.JWT_VERIFICATION_SECRET || 'verification_secret',
+          expiresIn: '24h',
+        },
+      );
+
+      await this.mailService.sendVerificationEmail(user.email, user.name, verificationToken);
+    } catch (error) {
+      this.logger.error('Failed to send verification email', error);
+    }
+
+    const result = user as Omit<User, 'password'>;
     return result;
   }
 
@@ -83,9 +133,8 @@ export class AuthService {
       payload = this.jwtService.verify(refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET || 'default_refresh_secret',
       });
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Invalid refresh token', (error as Error).message);
     }
 
     const user = await this.usersService.findById(payload.sub);
@@ -140,7 +189,7 @@ export class AuthService {
         invalidatedCount,
       };
     } catch (error) {
-      console.error('Logout failed:', error);
+      this.logger.error('Logout failed', (error as Error).message);
       return { message: 'Logged out with errors' };
     }
   }
@@ -166,11 +215,12 @@ export class AuthService {
   }
 
   private generateRefreshToken(payload: JwtPayload): string {
-    const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+    // '7d' = 7 * 24 * 60 * 60 = 604800 seconds
+    const expiresIn = 604800;
 
-    return this.jwtService.sign(payload as any, {
+    return this.jwtService.sign(payload, {
       secret: process.env.JWT_REFRESH_SECRET || 'default_refresh_secret',
-      expiresIn: expiresIn as any,
+      expiresIn,
     });
   }
 }

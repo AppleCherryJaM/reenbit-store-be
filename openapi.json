@@ -15,44 +15,6 @@
         ]
       }
     },
-    "/users/register": {
-      "post": {
-        "operationId": "UsersController_register",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateUserDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "User successfully registered",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegisterResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error"
-          },
-          "409": {
-            "description": "Email already exists"
-          }
-        },
-        "summary": "Register a new user",
-        "tags": [
-          "users"
-        ]
-      }
-    },
     "/users": {
       "get": {
         "operationId": "UsersController_findAll",
@@ -957,6 +919,44 @@
         ]
       }
     },
+    "/auth/verify-email": {
+      "post": {
+        "description": "Verify user email using verification token",
+        "operationId": "AuthController_verifyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "message": "Email verified successfully"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired token"
+          }
+        },
+        "summary": "Verify email address",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_healthCheck",
@@ -1019,42 +1019,6 @@
       }
     },
     "schemas": {
-      "CreateUserDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "example": "user@example.com",
-            "description": "User email address"
-          },
-          "name": {
-            "type": "string",
-            "example": "John Doe",
-            "description": "User full name"
-          },
-          "password": {
-            "type": "string",
-            "example": "password123",
-            "minLength": 6,
-            "description": "User password"
-          },
-          "phone": {
-            "type": "string",
-            "example": "+1234567890",
-            "description": "User phone number"
-          },
-          "avatarUrl": {
-            "type": "string",
-            "example": "https://example.com/avatar.jpg",
-            "description": "User avatar URL"
-          }
-        },
-        "required": [
-          "email",
-          "name",
-          "password"
-        ]
-      },
       "RegisterResponse": {
         "type": "object",
         "properties": {
@@ -1253,6 +1217,19 @@
             "description": "Refresh token to invalidate (optional)"
           }
         }
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "JWT verification token"
+          }
+        },
+        "required": [
+          "token"
+        ]
       }
     }
   }

@@ -4,6 +4,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import {
   ApiTags,
@@ -160,5 +161,26 @@ export class AuthController {
   })
   getCurrentUser(@Req() req: RequestWithUser) {
     return req.user;
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify email address',
+    description: 'Verify user email using verification token',
+  })
+  @ApiBody({ type: VerifyEmailDto })
+  @ApiOkResponse({
+    description: 'Email verified successfully',
+    schema: {
+      example: { message: 'Email verified successfully' },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid or expired token',
+  })
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
+    await this.authService.verifyEmail(verifyEmailDto.token);
+    return { message: 'Email verified successfully' };
   }
 }

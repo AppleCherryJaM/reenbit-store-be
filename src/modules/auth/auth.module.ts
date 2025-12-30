@@ -12,6 +12,7 @@ import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { JwtRefreshStrategy } from '../../common/strategies/jwt-refresh.strategy';
 import { jwtConstants } from '@/common/utils/jwt.constants';
 import { timeConverter } from '@/common/utils/utils';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { timeConverter } from '@/common/utils/utils';
     PassportModule,
     ConfigModule,
     TypeOrmModule.forFeature([BlacklistedToken]),
+    MailModule, 
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
