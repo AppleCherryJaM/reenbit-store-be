@@ -28,7 +28,6 @@ export class Product {
   @Column({ default: 0 })
   stock: number;
 
-  // 👇 ДОБАВЛЕНО: поле для изображений
   @Column('text', { array: true, default: [] })
   images: string[];
 

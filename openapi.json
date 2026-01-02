@@ -345,6 +345,163 @@
         ]
       }
     },
+    "/categories/tree/all": {
+      "get": {
+        "operationId": "CategoriesController_getTree",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Category tree",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Category"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get full category tree",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
+    "/categories/tree/roots": {
+      "get": {
+        "operationId": "CategoriesController_getRootCategories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Root categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Category"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get root categories for navigation",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
+    "/categories/tree/{id}/children": {
+      "get": {
+        "operationId": "CategoriesController_getChildren",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Children categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Category"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Category not found"
+          }
+        },
+        "summary": "Get children of category",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
+    "/categories/search": {
+      "get": {
+        "operationId": "CategoriesController_search",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Category"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search categories",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
+    "/categories/{id}/subcategories": {
+      "post": {
+        "operationId": "CategoriesController_createSubcategory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create subcategory",
+        "tags": [
+          "categories"
+        ]
+      }
+    },
     "/brands": {
       "get": {
         "operationId": "BrandsController_findAll",
@@ -505,7 +662,7 @@
         "parameters": [
           {
             "name": "page",
-            "required": false,
+            "required": true,
             "in": "query",
             "schema": {
               "type": "number"
@@ -513,7 +670,7 @@
           },
           {
             "name": "limit",
-            "required": false,
+            "required": true,
             "in": "query",
             "schema": {
               "type": "number"
@@ -521,7 +678,7 @@
           },
           {
             "name": "brandId",
-            "required": false,
+            "required": true,
             "in": "query",
             "schema": {
               "type": "number"
@@ -529,7 +686,7 @@
           },
           {
             "name": "categoryId",
-            "required": false,
+            "required": true,
             "in": "query",
             "schema": {
               "type": "number"
@@ -537,29 +694,26 @@
           },
           {
             "name": "search",
-            "required": false,
+            "required": true,
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "includeChildren",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Product"
-                  }
-                }
-              }
-            }
+            "description": ""
           }
         },
-        "summary": "Get all products (public)",
         "tags": [
           "products"
         ]
