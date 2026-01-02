@@ -10,6 +10,7 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
   UseGuards,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -21,11 +22,11 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CreateProductDto } from './dtos/create-product.dto';
 import { UpdateProductDto } from './dtos/update-product.dto';
+import { OptionalIntPipe } from '@/common/pipes/optional-int.pipe';
 
 @ApiTags('products')
 @Controller('products')
@@ -33,22 +34,23 @@ export class ProductsController {
   constructor(private productsService: ProductsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all products (public)' })
-  @ApiResponse({ status: 200, type: [Product] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'brandId', required: false, type: Number })
-  @ApiQuery({ name: 'categoryId', required: false, type: Number })
-  @ApiQuery({ name: 'search', required: false, type: String })
   async findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    @Query('brandId', ParseIntPipe) brandId?: number,
-    @Query('categoryId', ParseIntPipe) categoryId?: number,
+    @Query('brandId', OptionalIntPipe) brandId?: number,
+    @Query('categoryId', OptionalIntPipe) categoryId?: number,
     @Query('search') search?: string,
+    @Query('includeChildren', new DefaultValuePipe(true), ParseBoolPipe) includeChildren?: boolean,
   ) {
     const safeLimit = Math.min(limit, 50);
-    return this.productsService.findAll(page, safeLimit, brandId, categoryId, search);
+    return this.productsService.findAll(
+      page, 
+      safeLimit, 
+      brandId, 
+      categoryId, 
+      search,
+      includeChildren
+    );
   }
 
   @Get(':id')

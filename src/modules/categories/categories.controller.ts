@@ -6,6 +6,7 @@ import {
   Param,
   Put,
   Delete,
+  Query,
   ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
@@ -13,12 +14,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CategoriesService } from './categories.service';
 import { Category } from './entities/category.entity';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '@/common/decorators/roles.decorator';
 
 @ApiTags('categories')
@@ -47,7 +43,10 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Create category' })
   @ApiBearerAuth()
   @ApiResponse({ status: 201, type: Category })
-  create(@Body('name') name: string, @Body('description') description?: string): Promise<Category> {
+  create(
+    @Body('name') name: string,
+    @Body('description') description?: string,
+  ): Promise<Category> {
     return this.categoriesService.create(name, description);
   }
 
@@ -76,5 +75,48 @@ export class CategoriesController {
   @ApiResponse({ status: 404, description: 'Category not found' })
   delete(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.categoriesService.delete(id);
+  }
+
+  @Get('tree/all')
+  @ApiOperation({ summary: 'Get full category tree' })
+  @ApiResponse({ status: 200, description: 'Category tree', type: [Category] })
+  getTree(): Promise<Category[]> {
+    return this.categoriesService.getTree();
+  }
+
+  @Get('tree/roots')
+  @ApiOperation({ summary: 'Get root categories for navigation' })
+  @ApiResponse({ status: 200, description: 'Root categories', type: [Category] })
+  getRootCategories(): Promise<Category[]> {
+    return this.categoriesService.getRootCategories();
+  }
+
+  @Get('tree/:id/children')
+  @ApiOperation({ summary: 'Get children of category' })
+  @ApiResponse({ status: 200, description: 'Children categories', type: [Category] })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  getChildren(@Param('id', ParseIntPipe) id: number): Promise<Category[]> {
+    return this.categoriesService.getChildren(id);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search categories' })
+  @ApiResponse({ status: 200, description: 'Search results', type: [Category] })
+  search(@Query('q') query: string): Promise<Category[]> {
+    return this.categoriesService.search(query);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Post(':id/subcategories')
+  @ApiOperation({ summary: 'Create subcategory' })
+  @ApiBearerAuth()
+  @ApiResponse({ status: 201, type: Category })
+  createSubcategory(
+    @Param('id', ParseIntPipe) parentId: number,
+    @Body('name') name: string,
+    @Body('description') description?: string,
+  ): Promise<Category> {
+    return this.categoriesService.createSubcategory(parentId, name, description);
   }
 }

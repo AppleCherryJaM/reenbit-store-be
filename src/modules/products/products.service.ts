@@ -1,12 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
+import { Category } from '../categories/entities/category.entity';
+import { Brand } from '../brands/entities/brand.entity';
 import { CategoriesService } from '../categories/categories.service';
 import { BrandsService } from '../brands/brands.service';
 import { XmlProductDto } from '../import/dto/xml-product.dto';
@@ -17,11 +14,8 @@ import { UpdateProductDto } from './dtos/update-product.dto';
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
-  brandRepository: any;
-  categoryRepository: any;
 
   constructor(
-
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
 
@@ -29,71 +23,64 @@ export class ProductsService {
     private brandsService: BrandsService,
   ) {}
 
-  async findAll(
-    page: number = 1,
-    limit: number = 10,
-    brandId?: number,
-    categoryId?: number,
-    search?: string
-  ): Promise<{ products: Product[]; total: number }> {
-    const skip = (page - 1) * limit;
-    const queryBuilder = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.brand', 'brand')
-      .leftJoinAndSelect('product.categories', 'categories')
-      .orderBy('product.createdAt', 'DESC');
+  async create(createProductDto: CreateProductDto): Promise<Product> {
+    const { name, description, price, stock, images = [], brandId, categoryIds } = createProductDto;
+
+    const [brand, categories] = await Promise.all([
+      this.brandsService.findById(brandId), 
+      this.categoriesService.getRepository().find({ 
+        where: { id: In(categoryIds) } 
+      }),
+    ]);
+
+    if (categories.length !== categoryIds.length) {
+      const foundIds = categories.map(c => c.id);
+      const missingIds = categoryIds.filter(id => !foundIds.includes(id));
+      throw new NotFoundException(`Categories not found: ${missingIds.join(', ')}`);
+    }
+
+    const product = this.productRepository.create({
+      name,
+      description,
+      price,
+      stock,
+      images,
+      brand, 
+      categories,
+    });
+
+    return this.productRepository.save(product);
+  }
+
+  async update(id: number, updateProductDto: UpdateProductDto): Promise<Product> {
+    const product = await this.findById(id);
+
+    if (!product) {
+      throw new NotFoundException(`Product with id ${id} not found`);
+    }
+    
+    const { brandId, categoryIds, ...updateData } = updateProductDto;
 
     if (brandId) {
-      queryBuilder.andWhere('brand.id = :brandId', { brandId });
+      const brand = await this.brandsService.findById(brandId);
+      product.brand = brand;
     }
 
-    if (categoryId) {
-      queryBuilder.andWhere('categories.id = :categoryId', { categoryId });
-    }
-
-    if (search) {
-      queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:search)', {
-        search: `%${search}%`,
+    if (categoryIds !== undefined) {
+      const categories = await this.categoriesService.getRepository().find({
+        where: { id: In(categoryIds) }
       });
+      
+      if (categories.length !== categoryIds.length) {
+        const foundIds = categories.map(c => c.id);
+        const missingIds = categoryIds.filter(id => !foundIds.includes(id));
+        throw new NotFoundException(`Categories not found: ${missingIds.join(', ')}`);
+      }
+      product.categories = categories;
     }
 
-    const [products, total] = await queryBuilder
-      .skip(skip)
-      .take(limit)
-      .getManyAndCount();
-
-    return { products, total };
-  }
-
-  async findById(id: number): Promise<Product | null> {
-    let result: Product | null = null;
-
-    try {
-      result = await this.productRepository.findOne({
-        where: { id },
-        relations: ['brand', 'categories'],
-      });
-    } catch (error) {
-      this.logger.error(`Error finding products by ID: ${error}`);
-    }
-
-    return result;
-  }
-
-  async findProductByName(name: string): Promise<ProductArrayOutputDto> {
-    let output: ProductArrayOutputDto;
-    try {
-      const products = await this.productRepository.find({
-        where: { name },
-        relations: ['brand', 'categories'],
-      });
-      output = { message: 'Success', status: 200, result: products}
-    } catch (error) {
-      this.logger.error(`Error finding products by name: ${error}`);
-      output = { message: 'Internal Server Error', status: 500, result: null };
-    }
-
-    return output;
+    Object.assign(product, updateData);
+    return this.productRepository.save(product);
   }
 
   async upsert(dto: {
@@ -117,15 +104,12 @@ export class ProductsService {
     });
 
     if (product) {
-
       product.description = description;
       product.price = price;
       product.stock = stock;
       product.brand = brand;
-
       product.categories = [category];
     } else {
-
       product = this.productRepository.create({
         name,
         description,
@@ -148,8 +132,8 @@ export class ProductsService {
       this.categoriesService.bulkFindOrCreateCategories(allCategoryNames),
     ]);
 
-    const brandMap = new Map(brands.map(b => [b.name, b.id]));
-    const categoryMap = new Map(categories.map(c => [c.name, c.id]));
+    const brandMap = new Map(brands.map(b => [b.name, b]));
+    const categoryMap = new Map(categories.map(c => [c.name, c]));
 
     const products = dtos.map(dto => {
       const product = this.productRepository.create({
@@ -157,8 +141,8 @@ export class ProductsService {
         description: dto.description,
         price: dto.price,
         stock: dto.stock,
-        brand: { id: brandMap.get(dto.brandName)! },
-        categories: dto.categoryNames.map(name => ({ id: categoryMap.get(name)! })),
+        brand: brandMap.get(dto.brandName)!, 
+        categories: dto.categoryNames.map(name => categoryMap.get(name)!),
       });
       return product;
     });
@@ -166,62 +150,213 @@ export class ProductsService {
     await this.productRepository.save(products, { chunk: 100 });
   }
 
-  async create(createProductDto: CreateProductDto): Promise<Product> {
-    const { name, description, price, stock, images = [], brandId, categoryIds } = createProductDto;
+  private async getBrandById(id: number): Promise<Brand> {
+    return this.brandsService.findById(id);
+  }
 
-    const [brand, categories] = await Promise.all([
-      this.brandRepository.findOneBy({ id: brandId }),
-      this.categoryRepository.findBy({ id: In(categoryIds) }),
-    ]);
+  private async getCategoriesByIds(ids: number[]): Promise<Category[]> {
+    return this.categoriesService.getRepository().find({
+      where: { id: In(ids) }
+    });
+  }
 
-    if (!brand) {
-      throw new NotFoundException(`Brand with ID ${brandId} not found`);
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    brandId?: number,
+    categoryId?: number,
+    search?: string,
+    includeChildren: boolean = true,
+  ): Promise<{ products: Product[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .leftJoinAndSelect('product.categories', 'categories')
+      .orderBy('product.createdAt', 'DESC');
+
+    if (brandId) {
+      queryBuilder.andWhere('brand.id = :brandId', { brandId });
     }
 
-    if (categories.length !== categoryIds.length) {
-      throw new NotFoundException('One or more categories not found');
+    if (categoryId) {
+      if (includeChildren) {
+        const categoryIds = await this.categoriesService.getAllDescendantIds(categoryId);
+        queryBuilder.andWhere('categories.id IN (:...categoryIds)', { categoryIds });
+      } else {
+        queryBuilder.andWhere('categories.id = :categoryId', { categoryId });
+      }
     }
 
-    const product = this.productRepository.create({
-      name,
-      description,
-      price,
-      stock,
-      images,
-      brand,
-      categories,
+    if (search) {
+      queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    const [products, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    return { products, total };
+  }
+
+  async findById(id: number): Promise<Product | null> {
+    let result: Product | null = null;
+    try {
+      result = await this.productRepository.findOne({
+        where: { id },
+        relations: ['brand', 'categories'],
+      });
+    } catch (error) {
+      this.logger.error(`Error finding products by ID: ${error}`);
+    }
+    return result;
+  }
+
+  async findProductByName(name: string): Promise<ProductArrayOutputDto> {
+    let output: ProductArrayOutputDto;
+    try {
+      const products = await this.productRepository.find({
+        where: { name },
+        relations: ['brand', 'categories'],
+      });
+      output = { message: 'Success', status: 200, result: products };
+    } catch (error) {
+      this.logger.error(`Error finding products by name: ${error}`);
+      output = { message: 'Internal Server Error', status: 500, result: null };
+    }
+    return output;
+  }
+
+  async findByCategoryTree(
+    categoryId: number, 
+    page: number = 1, 
+    limit: number = 10,
+    brandId?: number,
+    search?: string,
+  ): Promise<{ products: Product[]; total: number; categoryInfo: any }> {
+    const category = await this.categoriesService.findById(categoryId);
+    
+    const result = await this.findAll(page, limit, brandId, categoryId, search, true);
+    
+    const subcategories = await this.categoriesService.getChildren(categoryId);
+    
+    return {
+      ...result,
+      categoryInfo: {
+        id: category.id,
+        name: category.name,
+        description: category.description,
+        subcategories: subcategories.map(sub => ({
+          id: sub.id,
+          name: sub.name,
+        }))
+      }
+    };
+  }
+
+  async updateProductCategories(
+    productId: number, 
+    categoryIds: number[],
+    includeParentCategories: boolean = false
+  ): Promise<Product> {
+    const product = await this.findById(productId);
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${productId} not found`);
+    }
+
+    let finalCategoryIds = categoryIds;
+
+    if (includeParentCategories) {
+      const allCategoryIds = new Set<number>();
+      
+      for (const categoryId of categoryIds) {
+        allCategoryIds.add(categoryId);
+
+        try {
+          const breadcrumbs = await this.categoriesService.getBreadcrumbs(categoryId);
+          breadcrumbs.forEach(cat => allCategoryIds.add(cat.id));
+        } catch (error) {
+          this.logger.warn(`Failed to get breadcrumbs for category ${categoryId}:`, error);
+        }
+      }
+      
+      finalCategoryIds = Array.from(allCategoryIds);
+    }
+
+    const categories = await this.categoriesService.getRepository().find({
+      where: { id: In(finalCategoryIds) }
     });
 
+    if (categories.length !== finalCategoryIds.length) {
+      const foundIds = categories.map(c => c.id);
+      const missingIds = finalCategoryIds.filter(id => !foundIds.includes(id));
+      throw new NotFoundException(`Categories not found: ${missingIds.join(', ')}`);
+    }
+
+    product.categories = categories;
     return this.productRepository.save(product);
   }
 
-  async update(id: number, updateProductDto: UpdateProductDto): Promise<Product> {
-    const product = await this.findById(id);
-
-    if (!product) {
-      throw new NotFoundException(`Product with id ${id} not found`);
-    }
+  async getCategoryProductCounts(categoryId: number): Promise<{
+    category: any;
+    directCount: number;
+    totalCount: number;
+    bySubcategory: Array<{ id: number; name: string; count: number }>;
+  }> {
+    const category = await this.categoriesService.findById(categoryId);
+    const subcategories = await this.categoriesService.getChildren(categoryId);
     
-    const { brandId, categoryIds, ...updateData } = updateProductDto;
-
-    if (brandId) {
-      const brand = await this.brandRepository.findOneBy({ id: brandId });
-      if (!brand) {
-        throw new NotFoundException(`Brand with ID ${brandId} not found`);
+    const directResult = await this.productRepository
+      .createQueryBuilder('product')
+      .innerJoin('product.categories', 'category', 'category.id = :categoryId', { categoryId })
+      .getCount();
+    
+    const categoryIds = await this.categoriesService.getAllDescendantIds(categoryId);
+    const totalResult = await this.productRepository
+      .createQueryBuilder('product')
+      .innerJoin('product.categories', 'category')
+      .where('category.id IN (:...categoryIds)', { categoryIds })
+      .getCount();
+    
+    const bySubcategoryPromises = subcategories.map(async (sub) => {
+      try {
+        const subIds = await this.categoriesService.getAllDescendantIds(sub.id);
+        const count = await this.productRepository
+          .createQueryBuilder('product')
+          .innerJoin('product.categories', 'category')
+          .where('category.id IN (:...subIds)', { subIds })
+          .getCount();
+        
+        return {
+          id: sub.id,
+          name: sub.name,
+          count
+        };
+      } catch (error) {
+        this.logger.warn(`Failed to count products for subcategory ${sub.id}:`, error);
+        return {
+          id: sub.id,
+          name: sub.name,
+          count: 0
+        };
       }
-      product.brand = brand;
-    }
-
-    if (categoryIds !== undefined) {
-      const categories = await this.categoryRepository.findBy({ id: In(categoryIds) });
-      if (categories.length !== categoryIds.length) {
-        throw new NotFoundException('One or more categories not found');
-      }
-      product.categories = categories;
-    }
-
-    Object.assign(product, updateData);
-    return this.productRepository.save(product);
+    });
+    
+    const bySubcategory = await Promise.all(bySubcategoryPromises);
+    
+    return {
+      category: {
+        id: category.id,
+        name: category.name,
+        description: category.description
+      },
+      directCount: directResult,
+      totalCount: totalResult,
+      bySubcategory
+    };
   }
 
   async delete(id: number): Promise<void> {

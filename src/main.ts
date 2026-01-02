@@ -7,6 +7,8 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { corsConfig, port } from './main.config';
 import { raw } from 'express';
+import { testSeed } from './seeds/updated-category.seed';
+import { DataSource } from 'typeorm';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -76,6 +78,11 @@ async function bootstrap() {
     } catch (error) {
       console.error('Failed to generate OpenAPI spec:', error);
     }
+  }
+
+  if (process.env.RUN_SEED === 'true') {
+    const dataSource = app.get(DataSource);
+    await testSeed(dataSource);
   }
 
   SwaggerModule.setup('api', app, document, {
