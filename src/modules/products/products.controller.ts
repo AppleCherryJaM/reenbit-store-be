@@ -23,10 +23,12 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { CreateProductDto } from './dtos/create-product.dto';
 import { UpdateProductDto } from './dtos/update-product.dto';
 import { OptionalIntPipe } from '@/common/pipes/optional-int.pipe';
+import { OptionalFloatPipe } from '@/common/pipes/optional-float.pipe';
 
 @ApiTags('products')
 @Controller('products')
@@ -34,22 +36,92 @@ export class ProductsController {
   constructor(private productsService: ProductsService) {}
 
   @Get()
+  @ApiQuery({ 
+    name: 'sortBy', 
+    required: false, 
+    enum: ['price_asc', 'price_desc', 'newest', 'name_asc', 'rating_desc', 'rating_asc'],
+    description: 'Products sorting options'
+  })
+  @ApiQuery({ 
+    name: 'minPrice', 
+    required: false, 
+    type: Number,
+    description: 'Minimum price' 
+  })
+  @ApiQuery({ 
+    name: 'maxPrice', 
+    required: false, 
+    type: Number,
+    description: 'Maximum price' 
+  })
+  @ApiQuery({ 
+    name: 'ratings', 
+    required: false, 
+    type: String,
+    description: 'Ratings using coma separator (e.g. 1,2,3)' 
+  })
+  @ApiQuery({ 
+    name: 'brandIds', 
+    required: false, 
+    type: String,
+    description: 'Brands Id using coma separator (e.g. 1,2,3)' 
+  })
+  @ApiQuery({ 
+    name: 'categoryIds', 
+    required: false, 
+    type: String,
+    description: 'Category IDs using comma separator (e.g. 1,2,3)' 
+  })
   async findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('brandId', OptionalIntPipe) brandId?: number,
+    @Query('brandIds') brandIds?: string,
     @Query('categoryId', OptionalIntPipe) categoryId?: number,
+    @Query('categoryIds') categoryIds?: string,
     @Query('search') search?: string,
     @Query('includeChildren', new DefaultValuePipe(true), ParseBoolPipe) includeChildren?: boolean,
+    @Query('sortBy') sortBy?: 'price_asc' | 'price_desc' | 'newest' | 'name_asc' | 'rating_desc' | 'rating_asc',
+    @Query('minPrice', OptionalFloatPipe) minPrice?: number,
+    @Query('maxPrice', OptionalFloatPipe) maxPrice?: number,
+    @Query('ratings') ratings?: string,
   ) {
     const safeLimit = Math.min(limit, 50);
+
+    let parsedBrandIds: number[] | undefined;
+    if (brandIds) {
+      parsedBrandIds = brandIds.split(',')
+        .map(id => parseInt(id.trim()))
+        .filter(id => !isNaN(id));
+    }
+
+    let parsedCategoryIds: number[] | undefined;
+    if (categoryIds) {
+      parsedCategoryIds = categoryIds.split(',')
+        .map(id => parseInt(id.trim()))
+        .filter(id => !isNaN(id));
+    }
+
+    let parsedRatings: number[] | undefined;
+    if (ratings) {
+      parsedRatings = ratings.split(',')
+        .map(r => parseFloat(r.trim()))
+        .filter(r => !isNaN(r) && r >= 0 && r <= 5);
+    }
+
     return this.productsService.findAll(
       page, 
       safeLimit, 
       brandId, 
       categoryId, 
       search,
-      includeChildren
+      includeChildren,
+      sortBy,
+      minPrice,
+      maxPrice,
+      parsedBrandIds,
+      parsedCategoryIds,
+      parsedRatings
     );
   }
 

@@ -28,6 +28,9 @@ export class Product {
   @Column({ default: 0 })
   stock: number;
 
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  rating: number;
+
   @Column('text', { array: true, default: [] })
   images: string[];
 
