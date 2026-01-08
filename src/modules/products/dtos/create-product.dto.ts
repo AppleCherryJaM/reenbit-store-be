@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional, IsArray, Min, Max } from 'class-validator';
 
 export class CreateProductDto {
@@ -22,10 +23,16 @@ export class CreateProductDto {
   @IsOptional()
   rating?: number = 0;
 
+  @ApiPropertyOptional({ 
+    description: 'Product image URLs', 
+    type: [String],
+    example: ['http://example.com/image1.jpg', 'http://example.com/image2.jpg']
+  })
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @IsOptional()
   images?: string[];
+
 
   @IsNumber()
   brandId: number;

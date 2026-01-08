@@ -5,7 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { corsConfig, port } from './main.config';
+import { corsConfig, port } from './common/config/main.config';
 import { raw } from 'express';
 import { testSeed } from './seeds/updated-category.seed';
 import { DataSource } from 'typeorm';

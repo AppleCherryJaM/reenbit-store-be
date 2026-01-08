@@ -7,12 +7,14 @@ import { Category } from '../categories/entities/category.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { CategoriesModule } from '../categories/categories.module';
 import { BrandsModule } from '../brands/brands.module';
+import { FileUploadModule } from '../file-upload/file-upload.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Product, Category, Brand]),
     CategoriesModule,
     BrandsModule,
+    FileUploadModule  
   ],
   providers: [ProductsService],
   controllers: [ProductsController],

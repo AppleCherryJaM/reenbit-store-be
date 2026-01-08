@@ -13,6 +13,7 @@ import { HealthModule } from './modules/health/health.module';
 import { ImportModule } from './modules/import/import.module';
 import { MailService } from './modules/mail/mail.service';
 import { MailModule } from './modules/mail/mail.module';
+import { FileUploadModule } from './modules/file-upload/file-upload.module';
 
 @Module({
   imports: [
@@ -60,7 +61,8 @@ import { MailModule } from './modules/mail/mail.module';
     AuthModule,
     HealthModule,
     ImportModule,
-    MailModule
+    MailModule,
+    FileUploadModule
   ],
   controllers: [AppController],
   providers: [AppService, MailService],
