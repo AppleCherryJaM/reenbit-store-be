@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsArray, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, Min, Max } from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -15,6 +15,12 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   stock: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(5)
+  @IsOptional()
+  rating?: number = 0;
 
   @IsArray()
   @IsString({ each: true })

@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -24,7 +28,7 @@ export class ProductsService {
   ) {}
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
-    const { name, description, price, stock, images = [], brandId, categoryIds } = createProductDto;
+    const { name, description, price, stock, images = [], brandId, categoryIds, rating = 0 } = createProductDto;
 
     const [brand, categories] = await Promise.all([
       this.brandsService.findById(brandId), 
@@ -47,6 +51,7 @@ export class ProductsService {
       images,
       brand, 
       categories,
+      rating
     });
 
     return this.productRepository.save(product);
@@ -61,8 +66,11 @@ export class ProductsService {
     
     const { brandId, categoryIds, ...updateData } = updateProductDto;
 
-    if (brandId) {
+    if (brandId !== undefined) {
       const brand = await this.brandsService.findById(brandId);
+      if (!brand) {
+        throw new NotFoundException(`Brand with id ${brandId} not found`);
+      }
       product.brand = brand;
     }
 
@@ -79,7 +87,14 @@ export class ProductsService {
       product.categories = categories;
     }
 
+    // rating can be 0, so check for undefined, not falsy
+    if (updateData.rating !== undefined) {
+      product.rating = updateData.rating;
+      delete updateData.rating;
+    }
+
     Object.assign(product, updateData);
+    
     return this.productRepository.save(product);
   }
 
@@ -109,6 +124,7 @@ export class ProductsService {
       product.stock = stock;
       product.brand = brand;
       product.categories = [category];
+      product.rating = 0;
     } else {
       product = this.productRepository.create({
         name,
@@ -117,6 +133,7 @@ export class ProductsService {
         stock,
         brand,
         categories: [category],
+        rating: 0,
       });
     }
 
@@ -141,6 +158,7 @@ export class ProductsService {
         description: dto.description,
         price: dto.price,
         stock: dto.stock,
+        rating: 0,
         brand: brandMap.get(dto.brandName)!, 
         categories: dto.categoryNames.map(name => categoryMap.get(name)!),
       });
@@ -167,24 +185,62 @@ export class ProductsService {
     categoryId?: number,
     search?: string,
     includeChildren: boolean = true,
-  ): Promise<{ products: Product[]; total: number }> {
+    sortBy?: 'price_asc' | 'price_desc' | 'newest' | 'name_asc' | 'rating_desc' | 'rating_asc',
+    minPrice?: number,
+    maxPrice?: number,
+    brandIds?: number[],
+    categoryIds?: number[],
+    ratings?: number[],
+  ): Promise<{ 
+    products: Product[]; 
+    total: number;
+    priceRange: { min: number; max: number };
+    availableRatings: number[];
+  }> {
     const skip = (page - 1) * limit;
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.brand', 'brand')
-      .leftJoinAndSelect('product.categories', 'categories')
-      .orderBy('product.createdAt', 'DESC');
+      .leftJoinAndSelect('product.categories', 'categories');
 
-    if (brandId) {
-      queryBuilder.andWhere('brand.id = :brandId', { brandId });
+    const finalBrandIds: number[] = [];
+    if (brandId) finalBrandIds.push(brandId);
+    if (brandIds && brandIds.length > 0) finalBrandIds.push(...brandIds);
+    
+    if (finalBrandIds.length > 0) {
+      if (finalBrandIds.length === 1) {
+        queryBuilder.andWhere('brand.id = :brandId', { brandId: finalBrandIds[0] });
+      } else {
+        queryBuilder.andWhere('brand.id IN (:...brandIds)', { brandIds: finalBrandIds });
+      }
     }
 
-    if (categoryId) {
+    const finalCategoryIds: number[] = [];
+    if (categoryId) finalCategoryIds.push(categoryId);
+    if (categoryIds && categoryIds.length > 0) finalCategoryIds.push(...categoryIds);
+    
+    if (finalCategoryIds.length > 0) {
       if (includeChildren) {
-        const categoryIds = await this.categoriesService.getAllDescendantIds(categoryId);
-        queryBuilder.andWhere('categories.id IN (:...categoryIds)', { categoryIds });
+        const allCategoryIds = new Set<number>();
+        for (const catId of finalCategoryIds) {
+          try {
+            const descendantIds = await this.categoriesService.getAllDescendantIds(catId);
+            descendantIds.forEach(id => allCategoryIds.add(id));
+          } catch (error) {
+            this.logger.warn(`Failed to get descendant categories for ${catId}:`, error);
+            allCategoryIds.add(catId);
+          }
+        }
+        
+        if (allCategoryIds.size > 0) {
+          queryBuilder.andWhere('categories.id IN (:...categoryIds)', { 
+            categoryIds: Array.from(allCategoryIds) 
+          });
+        }
       } else {
-        queryBuilder.andWhere('categories.id = :categoryId', { categoryId });
+        queryBuilder.andWhere('categories.id IN (:...categoryIds)', { 
+          categoryIds: finalCategoryIds 
+        });
       }
     }
 
@@ -194,12 +250,123 @@ export class ProductsService {
       });
     }
 
+    if (minPrice !== undefined) {
+      queryBuilder.andWhere('product.price >= :minPrice', { minPrice });
+    }
+    
+    if (maxPrice !== undefined) {
+      queryBuilder.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+
+    if (ratings && ratings.length > 0) {
+    // For integers
+    const ratingConditions = ratings.map(rating => 
+      `ROUND(product.rating) = ${rating}`
+    ).join(' OR ');
+    
+    queryBuilder.andWhere(`(${ratingConditions})`);
+    
+    // To Do: For float ratings
+  }
+
+    switch (sortBy) {
+      case 'price_asc':
+        queryBuilder.orderBy('product.price', 'ASC');
+        break;
+      case 'price_desc':
+        queryBuilder.orderBy('product.price', 'DESC');
+        break;
+      case 'name_asc':
+        queryBuilder.orderBy('product.name', 'ASC');
+        break;
+      // case 'rating_asc':
+      //   queryBuilder.orderBy('product.rating', 'ASC');
+      //   break;
+      // case 'rating_desc':
+      //   queryBuilder.orderBy('product.rating', 'DESC');
+      //   break;
+      case 'newest':
+      default:
+        queryBuilder.orderBy('product.createdAt', 'DESC');
+        break;
+    }
+
     const [products, total] = await queryBuilder
       .skip(skip)
       .take(limit)
       .getManyAndCount();
 
-    return { products, total };
+    const priceQueryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .select('MIN(product.price)', 'min')
+      .addSelect('MAX(product.price)', 'max');
+
+    if (finalBrandIds.length > 0) {
+      priceQueryBuilder.leftJoin('product.brand', 'brand');
+      
+      if (finalBrandIds.length === 1) {
+        priceQueryBuilder.andWhere('brand.id = :brandId', { brandId: finalBrandIds[0] });
+      } else {
+        priceQueryBuilder.andWhere('brand.id IN (:...brandIds)', { brandIds: finalBrandIds });
+      }
+
+    }
+
+    if (finalCategoryIds.length > 0) {
+      priceQueryBuilder.leftJoin('product.categories', 'categories');
+      
+      if (includeChildren) {
+        const allCategoryIds = new Set<number>();
+        for (const catId of finalCategoryIds) {
+          try {
+            const descendantIds = await this.categoriesService.getAllDescendantIds(catId);
+            descendantIds.forEach(id => allCategoryIds.add(id));
+          } catch (error) {
+            this.logger.error(`Failed to get descendant categories for ${catId}: ${error}`)
+            allCategoryIds.add(catId);
+          }
+        }
+        
+        if (allCategoryIds.size > 0) {
+          priceQueryBuilder.andWhere('categories.id IN (:...categoryIds)', { 
+            categoryIds: Array.from(allCategoryIds) 
+          });
+        }
+
+      } else {
+        priceQueryBuilder.andWhere('categories.id IN (:...categoryIds)', { 
+          categoryIds: finalCategoryIds 
+        });
+      }
+    }
+
+    if (search) {
+      priceQueryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
+    }
+
+    const priceStats = await priceQueryBuilder.getRawOne();
+
+    const ratingsQueryBuilder = this.productRepository
+    .createQueryBuilder('product')
+    .select('DISTINCT ROUND(product.rating)::int', 'rating')
+    .orderBy('rating', 'DESC');
+
+    const availableRatingsResult = await ratingsQueryBuilder.getRawMany();
+    const availableRatings = availableRatingsResult
+      .map(r => r.rating)
+      .filter(r => r !== null && r >= 0 && r <= 5)
+
+    return { 
+      products, 
+      total,
+      priceRange: {
+        min: parseFloat(priceStats?.min || '0'),
+        max: parseFloat(priceStats?.max || '10000')
+      },
+      availableRatings
+    };
   }
 
   async findById(id: number): Promise<Product | null> {

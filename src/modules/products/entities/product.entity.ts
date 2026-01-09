@@ -22,11 +22,17 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
+  @Column({ type: 'text', nullable: true })
+  baseDescription?: string;
+
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
   @Column({ default: 0 })
   stock: number;
+
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  rating: number;
 
   @Column('text', { array: true, default: [] })
   images: string[];

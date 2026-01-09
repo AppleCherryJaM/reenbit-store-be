@@ -685,11 +685,29 @@
             }
           },
           {
+            "name": "brandIds",
+            "required": false,
+            "in": "query",
+            "description": "Brands Id using coma separator (e.g. 1,2,3)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "categoryId",
             "required": true,
             "in": "query",
             "schema": {
               "type": "number"
+            }
+          },
+          {
+            "name": "categoryIds",
+            "required": false,
+            "in": "query",
+            "description": "Category IDs using comma separator (e.g. 1,2,3)",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -706,6 +724,50 @@
             "in": "query",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Products sorting options",
+            "schema": {
+              "enum": [
+                "price_asc",
+                "price_desc",
+                "newest",
+                "name_asc",
+                "rating_desc",
+                "rating_asc"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "minPrice",
+            "required": false,
+            "in": "query",
+            "description": "Minimum price",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxPrice",
+            "required": false,
+            "in": "query",
+            "description": "Maximum price",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "ratings",
+            "required": false,
+            "in": "query",
+            "description": "Ratings using coma separator (e.g. 1,2,3)",
+            "schema": {
+              "type": "string"
             }
           }
         ],
