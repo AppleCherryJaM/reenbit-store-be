@@ -47,7 +47,8 @@ export class AuthService {
     }
 
     if (user.isVerified) {
-      throw new ConflictException('Email already verified');
+      this.logger.log(`User ${user.email} already verified`);
+      return;
     }
 
     user.isVerified = true;
