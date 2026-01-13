@@ -1173,6 +1173,36 @@
         ]
       }
     },
+    "/auth/test-sendgrid": {
+      "post": {
+        "operationId": "AuthController_testSendGrid",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Test SendGrid email sending",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/email-status": {
+      "get": {
+        "operationId": "AuthController_getEmailStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Check email service status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "operationId": "HealthController_healthCheck",

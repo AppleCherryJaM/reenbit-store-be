@@ -1,4 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Req, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -19,6 +22,8 @@ import {
 } from '@nestjs/swagger';
 import { AuthResponse } from './types/auth.types';
 import { Throttle } from '@nestjs/throttler';
+import { MailService } from '../mail/mail.service';
+
 
 interface RequestWithUser extends Request {
   user: {
@@ -33,7 +38,10 @@ interface RequestWithUser extends Request {
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly mailService: MailService
+  ) {}
 
   @Throttle({ default: { limit: 3, ttl: 10000 } })
   @Post('login')
@@ -182,5 +190,64 @@ export class AuthController {
   async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
     await this.authService.verifyEmail(verifyEmailDto.token);
     return { message: 'Email verified successfully' };
+  }
+
+  @Post('test-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send test email' })
+  async testEmail(@Body() body: { email: string }) {
+    try {
+      const testToken = 'test-' + Date.now();
+      
+      await this.mailService.sendVerificationEmail(
+        body.email, 
+        'Test User', 
+        testToken
+      );
+      
+      return { 
+        success: true, 
+        message: 'Test email sent successfully',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: 'Failed to send email',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  @Get('email-status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check email service status' })
+  async getEmailStatus() {
+    try {
+      const status = await this.mailService.testConnection();
+      
+      return {
+        timestamp: new Date().toISOString(),
+        status,
+        config: {
+          emailProvider: process.env.EMAIL_PROVIDER,
+          isProduction: process.env.NODE_ENV === 'production',
+          sendGridKeyExists: !!process.env.SENDGRID_API_KEY,
+          sendGridKeyLength: process.env.SENDGRID_API_KEY?.length || 0,
+          fromEmail: process.env.EMAIL_FROM || process.env.SMTP_FROM,
+        }
+      };
+    } catch (error: any) {
+      return {
+        timestamp: new Date().toISOString(),
+        error: error.message,
+        config: {
+          emailProvider: process.env.EMAIL_PROVIDER,
+          isProduction: process.env.NODE_ENV === 'production',
+          sendGridKeyExists: !!process.env.SENDGRID_API_KEY,
+        }
+      };
+    }
   }
 }
