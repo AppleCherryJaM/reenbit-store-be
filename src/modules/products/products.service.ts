@@ -532,4 +532,10 @@ export class ProductsService {
       throw new NotFoundException(`Product with ID ${id} not found`);
     }
   }
+
+  async updateProductRating(productId: number, newRating: number): Promise<void> {
+    await this.productRepository.update(productId, {
+      rating: parseFloat(newRating.toFixed(2))
+    });
+  }
 }

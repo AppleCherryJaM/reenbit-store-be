@@ -13,6 +13,8 @@ import { HealthModule } from './modules/health/health.module';
 import { ImportModule } from './modules/import/import.module';
 import { MailService } from './modules/mail/mail.service';
 import { MailModule } from './modules/mail/mail.module';
+import { CommentsModule } from './modules/comments/comments.module';
+import { OrdersModule } from './modules/orders/orders.module';
 
 @Module({
   imports: [
@@ -60,7 +62,9 @@ import { MailModule } from './modules/mail/mail.module';
     AuthModule,
     HealthModule,
     ImportModule,
-    MailModule
+    MailModule,
+    CommentsModule,
+    OrdersModule
   ],
   controllers: [AppController],
   providers: [AppService, MailService],

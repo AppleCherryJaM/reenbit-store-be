@@ -7,9 +7,11 @@ import {
   JoinTable,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 import { Category } from '../../categories/entities/category.entity';
 import { Brand } from '../../brands/entities/brand.entity';
+import { Comment } from '@/modules/comments/entities/comment.entity';
 
 @Entity('products')
 export class Product {
@@ -39,6 +41,9 @@ export class Product {
 
   @ManyToOne(() => Brand, (brand) => brand.products)
   brand: Brand;
+
+  @OneToMany(() => Comment, (comment) => comment.product)
+  comments: Comment[];
 
   @ManyToMany(() => Category)
   @JoinTable({
