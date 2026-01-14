@@ -31,7 +31,7 @@ export class Comment {
   @Column({ type: 'decimal', precision: 2, scale: 1, nullable: true })
   rating?: number;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: 'boolean', default: false, name: 'is_verified_purchase' })
   isVerifiedPurchase: boolean;
 
   @ManyToOne(() => Product, (product) => product.comments, { onDelete: 'CASCADE' })

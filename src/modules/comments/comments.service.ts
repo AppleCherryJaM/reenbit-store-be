@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -5,21 +6,23 @@ import {
   Injectable, 
   NotFoundException, 
   BadRequestException, 
-  ForbiddenException 
+  ForbiddenException, 
+	Logger
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Comment, CommentType } from './entities/comment.entity';
 import { ProductsService } from '../products/products.service';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/user.entity';
 import { Product } from '../products/entities/product.entity';
-import { CommentWithRepliesDto } from './dtos/comment-with-replies.dto';
+// import { CommentWithRepliesDto } from './dtos/comment-with-replies.dto';
 import { CreateCommentDto } from './dtos/create-comment.dto';
 import { UpdateCommentDto } from './dtos/update-comment.dto';
 
 @Injectable()
 export class CommentsService {
+	private readonly logger = new Logger(CommentsService.name);
   constructor(
     @InjectRepository(Comment)
     private commentRepository: Repository<Comment>,
@@ -28,110 +31,156 @@ export class CommentsService {
     private usersService: UsersService,
   ) {}
 
-  async findByProductId(
-    productId: number, 
-    type?: CommentType,
-    page: number = 1,
-    limit: number = 10,
-    minRating?: number,
-  ): Promise<{ 
-    comments: CommentWithRepliesDto[]; 
-    total: number;
-    page: number;
-    totalPages: number;
-    statistics?: {
-      averageRating: number;
-      totalReviews: number;
-      totalQuestions: number;
-      verifiedPurchases: number;
-    };
-  }> {
-    const skip = (page - 1) * limit;
-
-    let statistics;
-    if (page === 1) {
-      statistics = await this.getProductCommentsStatistics(productId);
-    }
-
-    const queryBuilder = this.commentRepository
-      .createQueryBuilder('comment')
-      .leftJoinAndSelect('comment.author', 'author')
-      .where('comment.product_id = :productId', { productId })
-      .andWhere('comment.parent_id IS NULL')
-      .orderBy('comment.created_at', 'DESC');
-
-    if (type) {
-      queryBuilder.andWhere('comment.type = :type', { type });
-    }
-
-    if (minRating !== undefined) {
-      queryBuilder.andWhere('comment.rating >= :minRating', { minRating });
-    }
-
-    const [rootComments, total] = await queryBuilder
-      .skip(skip)
-      .take(limit)
-      .getManyAndCount();
-
-    const rootIds = rootComments.map(c => c.id);
-    let allReplies: Comment[] = [];
-    
-    if (rootIds.length > 0) {
-      allReplies = await this.commentRepository.find({
-        where: {
-          parent: { id: In(rootIds) },
-        },
-        relations: ['author'],
-        order: { createdAt: 'ASC' },
-      });
-    }
-
-    const repliesMap = new Map<number, Comment[]>();
-    for (const reply of allReplies) {
-      const parentId = reply.parent!.id;
-      if (!repliesMap.has(parentId)) {
-        repliesMap.set(parentId, []);
-      }
-      repliesMap.get(parentId)!.push(reply);
-    }
-
-    const comments = rootComments.map(comment => ({
-      id: comment.id,
-      content: comment.content,
-      type: comment.type,
-      rating: comment.rating,
-      isVerifiedPurchase: comment.isVerifiedPurchase,
-      createdAt: comment.createdAt,
-      updatedAt: comment.updatedAt,
-      author: {
-        id: comment.author.id,
-        name: comment.author.name,
-        avatarUrl: comment.author.avatarUrl,
-      },
-      replies: (repliesMap.get(comment.id) || []).map(reply => ({
-        id: reply.id,
-        content: reply.content,
-        type: reply.type,
-        rating: reply.rating,
-        isVerifiedPurchase: reply.isVerifiedPurchase,
-        createdAt: reply.createdAt,
-        updatedAt: reply.updatedAt,
-        author: {
-          id: reply.author.id,
-          name: reply.author.name,
-          avatarUrl: reply.author.avatarUrl,
-        },
-      })),
-    }));
-
-    return {
-      comments,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-      statistics,
-    };
-  }
+	async findByProductId(
+		productId: number, 
+		type?: CommentType,
+		page: number = 1,
+		limit: number = 10,
+		minRating?: number,
+	): Promise<any> {
+		const skip = (page - 1) * limit;
+		
+		try {
+			// 1. Получаем корневые комментарии
+			let query = `
+				SELECT 
+					c.id,
+					c.content,
+					c.type,
+					c.rating,
+					c.is_verified_purchase as "isVerifiedPurchase",
+					c.created_at as "createdAt",
+					c.updated_at as "updatedAt",
+					u.id as "authorId",
+					u.name as "authorName",
+					u.avatar_url as "authorAvatarUrl"
+				FROM comments c
+				LEFT JOIN users u ON c.author_id = u.id
+				WHERE c.product_id = $1 
+					AND c.parent_id IS NULL
+			`;
+			
+			const params: any[] = [productId];
+			
+			if (type) {
+				params.push(type);
+				query += ` AND c.type = $${params.length}`;
+			}
+			
+			if (minRating !== undefined && type === 'review') {
+				params.push(minRating);
+				query += ` AND c.rating >= $${params.length}`;
+			}
+			
+			query += ` ORDER BY c.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+			params.push(limit, skip);
+			
+			const rootComments = await this.commentRepository.query(query, params);
+			
+			// 2. Получаем общее количество
+			let countQuery = `
+				SELECT COUNT(*) as total 
+				FROM comments c
+				WHERE c.product_id = $1 
+					AND c.parent_id IS NULL
+			`;
+			
+			const countParams: any[] = [productId];
+			
+			if (type) {
+				countParams.push(type);
+				countQuery += ` AND c.type = $${countParams.length}`;
+			}
+			
+			if (minRating !== undefined && type === 'review') {
+				countParams.push(minRating);
+				countQuery += ` AND c.rating >= $${countParams.length}`;
+			}
+			
+			const countResult = await this.commentRepository.query(countQuery, countParams);
+			const total = parseInt(countResult[0].total);
+			
+			// 3. Получаем ответы, если есть корневые комментарии
+			let allReplies: any[] = [];
+			if (rootComments.length > 0) {
+				const rootIds = rootComments.map(c => c.id);
+				const repliesQuery = `
+					SELECT 
+						c.id,
+						c.content,
+						c.type,
+						c.rating,
+						c.is_verified_purchase as "isVerifiedPurchase",
+						c.created_at as "createdAt",
+						c.updated_at as "updatedAt",
+						c.parent_id as "parentId",
+						u.id as "authorId",
+						u.name as "authorName",
+						u.avatar_url as "authorAvatarUrl"
+					FROM comments c
+					LEFT JOIN users u ON c.author_id = u.id
+					WHERE c.parent_id = ANY($1)
+					ORDER BY c.created_at ASC
+				`;
+				
+				allReplies = await this.commentRepository.query(repliesQuery, [rootIds]);
+			}
+			
+			// 4. Группируем ответы
+			const repliesMap = new Map<number, any[]>();
+			for (const reply of allReplies) {
+				const parentId = reply.parentId;
+				if (!repliesMap.has(parentId)) {
+					repliesMap.set(parentId, []);
+				}
+				repliesMap.get(parentId)!.push({
+					id: reply.id,
+					content: reply.content,
+					type: reply.type,
+					rating: reply.rating,
+					isVerifiedPurchase: reply.isVerifiedPurchase,
+					createdAt: reply.createdAt,
+					updatedAt: reply.updatedAt,
+					author: {
+						id: reply.authorId,
+						name: reply.authorName,
+						avatarUrl: reply.authorAvatarUrl,
+					},
+				});
+			}
+			
+			// 5. Форматируем результат
+			const comments = rootComments.map(comment => ({
+				id: comment.id,
+				content: comment.content,
+				type: comment.type,
+				rating: comment.rating,
+				isVerifiedPurchase: comment.isVerifiedPurchase,
+				createdAt: comment.createdAt,
+				updatedAt: comment.updatedAt,
+				author: {
+					id: comment.authorId,
+					name: comment.authorName,
+					avatarUrl: comment.authorAvatarUrl,
+				},
+				replies: repliesMap.get(comment.id) || [],
+			}));
+			
+			// 6. Получаем статистику
+			const statistics = await this.getProductCommentsStatistics(productId);
+			
+			return {
+				comments,
+				total,
+				page,
+				totalPages: Math.ceil(total / limit),
+				statistics,
+			};
+		} catch (error) {
+			this.logger.error(`Error loading comments for product ${productId}:`, error);
+			throw new BadRequestException('Failed to load comments');
+		}
+	}
 
   async create(
     productId: number,
@@ -274,37 +323,55 @@ export class CommentsService {
     }
   }
 
-  async getProductCommentsStatistics(productId: number) {
-    const reviews = await this.commentRepository.find({
-      where: {
-        product: { id: productId },
-        type: 'review',
-      },
-    });
+  private async getProductCommentsStatistics(productId: number) {
+		try {
+			// 1. Статистика отзывов
+			const reviewsQuery = `
+				SELECT 
+					COUNT(*) as "totalReviews",
+					AVG(rating) as "averageRating",
+					COUNT(CASE WHEN is_verified_purchase = true THEN 1 END) as "verifiedPurchases"
+				FROM comments 
+				WHERE product_id = $1 
+					AND type = 'review'
+					AND parent_id IS NULL
+			`;
 
-    const questions = await this.commentRepository.find({
-      where: {
-        product: { id: productId },
-        type: 'question',
-      },
-    });
+			const reviewsResult = await this.commentRepository.query(reviewsQuery, [productId]);
+			
+			// 2. Статистика вопросов
+			const questionsQuery = `
+				SELECT COUNT(*) as "totalQuestions"
+				FROM comments 
+				WHERE product_id = $1 
+					AND type = 'question'
+					AND parent_id IS NULL
+			`;
 
-    const totalReviews = reviews.length;
-    const totalQuestions = questions.length;
-    
-    const verifiedPurchases = reviews.filter(r => r.isVerifiedPurchase).length;
-    
-    const averageRating = totalReviews > 0 
-      ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews
-      : 0;
+			const questionsResult = await this.commentRepository.query(questionsQuery, [productId]);
 
-    return {
-      averageRating: parseFloat(averageRating.toFixed(2)),
-      totalReviews,
-      totalQuestions,
-      verifiedPurchases,
-    };
-  }
+			const totalReviews = parseInt(reviewsResult[0]?.totalReviews || '0');
+			const averageRating = parseFloat(reviewsResult[0]?.averageRating || '0');
+			const verifiedPurchases = parseInt(reviewsResult[0]?.verifiedPurchases || '0');
+			const totalQuestions = parseInt(questionsResult[0]?.totalQuestions || '0');
+
+			return {
+				averageRating: isNaN(averageRating) ? 0 : parseFloat(averageRating.toFixed(2)),
+				totalReviews,
+				totalQuestions,
+				verifiedPurchases,
+			};
+		} catch (error) {
+			this.logger.error(`Error loading statistics for product ${productId}:`, error);
+			// Возвращаем пустую статистику вместо ошибки
+			return {
+				averageRating: 0,
+				totalReviews: 0,
+				totalQuestions: 0,
+				verifiedPurchases: 0,
+			};
+		}
+	}
 
   private async updateProductRating(productId: number): Promise<void> {
 		const result = await this.commentRepository
