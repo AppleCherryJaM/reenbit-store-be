@@ -1173,16 +1173,16 @@
         ]
       }
     },
-    "/auth/test-sendgrid": {
+    "/auth/test-email": {
       "post": {
-        "operationId": "AuthController_testSendGrid",
+        "operationId": "AuthController_testEmail",
         "parameters": [],
         "responses": {
           "200": {
             "description": ""
           }
         },
-        "summary": "Test SendGrid email sending",
+        "summary": "Send test email",
         "tags": [
           "auth"
         ]

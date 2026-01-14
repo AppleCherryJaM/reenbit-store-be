@@ -118,7 +118,11 @@ export class AuthService {
         },
       );
 
-      await this.mailService.sendVerificationEmail(user.email, user.name, verificationToken);
+      this.mailService.sendVerificationEmail(user.email, user.name, verificationToken)
+      .catch(error => {
+        this.logger.error('Failed to send verification email (async)', error);
+        // Можно сохранить в очередь для повторной отправки
+      });
     } catch (error) {
       this.logger.error('Failed to send verification email', error);
     }

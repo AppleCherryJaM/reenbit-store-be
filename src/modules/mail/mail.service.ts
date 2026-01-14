@@ -31,10 +31,13 @@ export class MailService implements OnModuleInit {
       this.transporter = nodemailer.createTransport({
         host,
         port,
-        secure: false,
+        secure: true,
         auth: {
           user,
           pass,
+        },
+        tls: {
+          rejectUnauthorized: false
         },
         debug: true, 
         logger: true,
