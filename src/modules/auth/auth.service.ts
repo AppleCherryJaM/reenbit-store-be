@@ -16,6 +16,7 @@ import { AuthResponse, JwtPayload } from './types/auth.types';
 import { BlacklistService } from './blacklist.service';
 import { MailService } from '../mail/mail.service';
 import { VerificationPayload } from './dto/verification-payload.dto';
+import { SendgridService } from './sendgrid/sendgrid.service';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +27,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly blacklistService: BlacklistService,
     private readonly mailService: MailService,
+    private readonly sendgridService: SendgridService,
+    // private readonly resendService: ResendService
   ) {}
 
   async verifyEmail(token: string): Promise<void> {
@@ -117,14 +120,17 @@ export class AuthService {
           expiresIn: '24h',
         },
       );
+      
+      await this.sendgridService.sendVerificationEmail(
+        user.email, 
+        user.name, 
+        verificationToken
+      );
 
-      this.mailService.sendVerificationEmail(user.email, user.name, verificationToken)
-      .catch(error => {
-        this.logger.error('Failed to send verification email (async)', error);
-        // Можно сохранить в очередь для повторной отправки
-      });
     } catch (error) {
-      this.logger.error('Failed to send verification email', error);
+      this.logger.error('Failed to send verification email via Resend', error);
+      // Можно сохранить пользователя, но залогировать ошибку
+      // Или реализовать очередь писем
     }
 
     const result = user as Omit<User, 'password'>;

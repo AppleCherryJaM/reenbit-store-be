@@ -3,7 +3,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
-import { createEmailList, createEmailText } from './email.config';
+import { createEmailList, createEmailText } from '../auth/sendgrid/email.config';
 
 @Injectable()
 export class MailService implements OnModuleInit {
