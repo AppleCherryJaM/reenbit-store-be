@@ -1,58 +1,47 @@
 export const port = parseInt(process.env.PORT || '5002', 10);
 
 export const getCorsConfig = () => {
-  // Определяем разрешенные источники
   const allowedOrigins: string[] = [];
 
-  // Добавляем FE_API_URL если указан
-  if (process.env.FE_API_URL) {
-    const urls = process.env.FE_API_URL.split(',');
+  if (process.env.ALLOWED_ORIGINS) {
+    if (process.env.ALLOWED_ORIGINS === '*') {
+      // Если стоит * - разрешаем всё
+      console.log('🌐 CORS: Allowing ALL origins (*)');
+      return {
+        origin: true,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+        exposedHeaders: ['Authorization'],
+        maxAge: 86400,
+      };
+    }
+    
+    // Разбираем список origins
+    const urls = process.env.ALLOWED_ORIGINS.split(',')
+      .map(url => url.trim())
+      .filter(url => url.length > 0);
+    
     allowedOrigins.push(...urls);
   }
 
-  // В development добавляем localhost
-  if (process.env.NODE_ENV !== 'production') {
+  console.log('🌐 Allowed CORS origins:', allowedOrigins);
+
+  // Если origins не указаны, разрешаем по умолчанию
+  if (allowedOrigins.length === 0) {
     allowedOrigins.push(
+      'https://reenbit-store-fe.netlify.app',
       'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:3001',
+      'https://reenbit-store-be.onrender.com'
     );
   }
 
-  // Если в production не указаны origins, разрешаем все (только для тестирования)
-  if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
-    console.warn('No CORS origins specified in production, allowing all');
-    return {
-      origin: true, // Разрешаем все в production для тестирования
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    };
-  }
-
   return {
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      // Разрешаем запросы без origin (например, от Postman, curl, мобильных приложений)
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      // Проверяем есть ли origin в разрешенных
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      // Для production логируем заблокированные запросы
-      if (process.env.NODE_ENV === 'production') {
-        console.warn(`CORS blocked: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
-      }
-
-      callback(new Error('Not allowed by CORS'));
-    },
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
-    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Authorization'],
     maxAge: 86400,
   };
 };
