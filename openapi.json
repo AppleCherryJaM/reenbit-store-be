@@ -15,6 +15,50 @@
         ]
       }
     },
+    "/categories/{categoryId}/products/suggestions/popular": {
+      "get": {
+        "operationId": "CategorySuggestionsController_getPopularInCategory",
+        "parameters": [
+          {
+            "name": "categoryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of products",
+            "schema": {
+              "example": 12,
+              "type": "number"
+            }
+          },
+          {
+            "name": "includeChildren",
+            "required": false,
+            "in": "query",
+            "description": "Include subcategories",
+            "schema": {
+              "example": true,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Popular products in category"
+          }
+        },
+        "summary": "Get popular products in category",
+        "tags": [
+          "category-suggestions"
+        ]
+      }
+    },
     "/users": {
       "get": {
         "operationId": "UsersController_findAll",
@@ -994,6 +1038,177 @@
           }
         ],
         "summary": "Delete product",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/products/{id}/suggestions": {
+      "get": {
+        "operationId": "ProductSuggestionsController_getSuggestions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of suggestions",
+            "schema": {
+              "example": 6,
+              "type": "number"
+            }
+          },
+          {
+            "name": "includeBrand",
+            "required": false,
+            "in": "query",
+            "description": "Include same brand",
+            "schema": {
+              "example": true,
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "minRating",
+            "required": false,
+            "in": "query",
+            "description": "Minimum rating",
+            "schema": {
+              "example": 4,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get product suggestions",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/products/{id}/suggestions/similar": {
+      "get": {
+        "operationId": "ProductSuggestionsController_getSimilar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 6,
+              "type": "number"
+            }
+          },
+          {
+            "name": "includeBrand",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": true,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get similar products by categories",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/products/{id}/suggestions/frequently-bought": {
+      "get": {
+        "operationId": "ProductSuggestionsController_getFrequentlyBought",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 4,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get products frequently bought together",
+        "tags": [
+          "products"
+        ]
+      }
+    },
+    "/products/{id}/suggestions/price-range": {
+      "get": {
+        "operationId": "ProductSuggestionsController_getPriceRangeSimilar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 6,
+              "type": "number"
+            }
+          },
+          {
+            "name": "rangePercent",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 30,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get similar products in the same price range",
         "tags": [
           "products"
         ]

@@ -87,7 +87,6 @@ export class ProductsService {
       product.categories = categories;
     }
 
-    // rating can be 0, so check for undefined, not falsy
     if (updateData.rating !== undefined) {
       product.rating = updateData.rating;
       delete updateData.rating;
@@ -259,7 +258,6 @@ export class ProductsService {
     }
 
     if (ratings && ratings.length > 0) {
-    // For integers
     const ratingConditions = ratings.map(rating => 
       `ROUND(product.rating) = ${rating}`
     ).join(' OR ');
@@ -538,4 +536,6 @@ export class ProductsService {
       rating: parseFloat(newRating.toFixed(2))
     });
   }
+
+  
 }
