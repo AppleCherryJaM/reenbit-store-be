@@ -1,13 +1,14 @@
- /* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { IsEmail, IsNotEmpty, MinLength, IsOptional } from 'class-validator';
+import { Comment } from '@/modules/comments/entities/comment.entity';
+import { Order } from '@/modules/orders/entities/order.entity';
 
 @Entity('users')
 export class User {
@@ -15,15 +16,12 @@ export class User {
   id: number;
 
   @Column({ unique: true })
-  @IsEmail()
   email: string;
 
   @Column()
-  @IsNotEmpty()
   name: string;
 
   @Column({ nullable: true })
-  @IsOptional()
   phone?: string;
 
   @Column({ default: 'customer' })
@@ -31,7 +29,6 @@ export class User {
 
   @Column()
   @Exclude()
-  @MinLength(6)
   password: string;
 
   @Column({ default: false, name: 'is_verified' })
@@ -41,8 +38,13 @@ export class User {
   isActive: boolean;
 
   @Column({ nullable: true, name: 'avatar_url' })
-  @IsOptional()
   avatarUrl?: string;
+
+  @OneToMany(() => Comment, (comment) => comment.author)
+  comments: Comment[];
+
+  @OneToMany(() => Order, (order) => order.user)
+  orders: Order[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

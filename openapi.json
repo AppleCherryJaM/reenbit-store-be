@@ -191,6 +191,78 @@
         ]
       }
     },
+    "/orders/my": {
+      "get": {
+        "operationId": "OrdersController_getMyOrders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of user orders"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get my orders",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_getOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order details"
+          },
+          "404": {
+            "description": "Order not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get order by ID",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/test": {
+      "post": {
+        "operationId": "OrdersController_createTestOrder",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Test order created"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create test order (for development)",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/categories": {
       "get": {
         "operationId": "CategoriesController_findAll",
@@ -1230,6 +1302,229 @@
           "Import"
         ]
       }
+    },
+    "/products/{productId}/comments": {
+      "get": {
+        "operationId": "CommentsController_getComments",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "review",
+                "question"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "minRating",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of comments"
+          }
+        },
+        "summary": "Get all comments (reviews/questions) for a product",
+        "tags": [
+          "comments"
+        ]
+      },
+      "post": {
+        "operationId": "CommentsController_createComment",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCommentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment created"
+          },
+          "403": {
+            "description": "User must purchase product to leave a review"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new review or question for a product",
+        "tags": [
+          "comments"
+        ]
+      }
+    },
+    "/products/{productId}/comments/{commentId}": {
+      "patch": {
+        "operationId": "CommentsController_updateComment",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCommentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment updated"
+          },
+          "403": {
+            "description": "Forbidden - not your comment"
+          },
+          "404": {
+            "description": "Comment not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a comment",
+        "tags": [
+          "comments"
+        ]
+      },
+      "delete": {
+        "operationId": "CommentsController_deleteComment",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comment deleted"
+          },
+          "403": {
+            "description": "Forbidden - not your comment"
+          },
+          "404": {
+            "description": "Comment not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete a comment",
+        "tags": [
+          "comments"
+        ]
+      }
+    },
+    "/comments/{commentId}/reply": {
+      "post": {
+        "operationId": "CommentRepliesController_createReply",
+        "parameters": [
+          {
+            "name": "commentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Reply created"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reply to a comment (question or review)",
+        "tags": [
+          "comments"
+        ]
+      }
     }
   },
   "info": {
@@ -1476,6 +1771,52 @@
         "required": [
           "token"
         ]
+      },
+      "CreateCommentDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Comment content",
+            "minLength": 5,
+            "maxLength": 2000
+          },
+          "type": {
+            "type": "string",
+            "description": "Comment type",
+            "enum": [
+              "review",
+              "question"
+            ]
+          },
+          "rating": {
+            "type": "number",
+            "description": "Rating (required for reviews)",
+            "minimum": 0,
+            "maximum": 5
+          }
+        },
+        "required": [
+          "content",
+          "type"
+        ]
+      },
+      "UpdateCommentDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Comment content",
+            "minLength": 5,
+            "maxLength": 2000
+          },
+          "rating": {
+            "type": "number",
+            "description": "Rating (only for reviews)",
+            "minimum": 0,
+            "maximum": 5
+          }
+        }
       }
     }
   }

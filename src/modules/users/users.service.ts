@@ -5,16 +5,17 @@ import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { OrdersService } from '../orders/orders.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private ordersService: OrdersService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-
     const existingUser = await this.findByEmail(createUserDto.email);
 
     if (existingUser) {
@@ -22,7 +23,6 @@ export class UsersService {
     }
 
     const saltRounds = parseInt(process.env.SALT_ROUNDS || '12');
-
     const hashedPassword = await bcrypt.hash(
       createUserDto.password,
       saltRounds,
@@ -63,7 +63,6 @@ export class UsersService {
     }
 
     await this.usersRepository.update(id, updateUserDto);
-
     return this.findById(id);
   }
 
@@ -80,5 +79,9 @@ export class UsersService {
 
   async validatePassword(user: User, password: string): Promise<boolean> {
     return bcrypt.compare(password, user.password);
+  }
+
+  async hasPurchasedProduct(userId: number, productId: number): Promise<boolean> {
+    return this.ordersService.hasUserPurchasedProduct(userId, productId);
   }
 }
