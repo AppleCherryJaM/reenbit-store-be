@@ -235,6 +235,224 @@
         ]
       }
     },
+    "/orders/cart": {
+      "get": {
+        "operationId": "OrdersController_getCart",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "User cart details"
+          },
+          "404": {
+            "description": "Cart not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get current user cart",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/cart/add": {
+      "post": {
+        "operationId": "OrdersController_addToCart",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddToCartDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Item added to cart"
+          },
+          "400": {
+            "description": "Insufficient stock"
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add item to cart",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/cart/update/{itemId}": {
+      "put": {
+        "operationId": "OrdersController_updateCartItem",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "quantity": {
+                    "type": "number",
+                    "example": 3
+                  }
+                },
+                "required": [
+                  "quantity"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cart item updated"
+          },
+          "404": {
+            "description": "Cart item not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update cart item quantity",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/cart/remove/{itemId}": {
+      "delete": {
+        "operationId": "OrdersController_removeFromCart",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item removed from cart"
+          },
+          "404": {
+            "description": "Cart item not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove item from cart",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/cart/clear": {
+      "delete": {
+        "operationId": "OrdersController_clearCart",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Cart cleared"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clear cart",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/cart/checkout": {
+      "post": {
+        "operationId": "OrdersController_checkoutCart",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Order created successfully"
+          },
+          "400": {
+            "description": "Cart is empty"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Checkout cart and create order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders": {
+      "post": {
+        "operationId": "OrdersController_createOrder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Order created successfully"
+          },
+          "400": {
+            "description": "Invalid order data"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create new order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/orders/my": {
       "get": {
         "operationId": "OrdersController_getMyOrders",
@@ -249,7 +467,7 @@
             "bearer": []
           }
         ],
-        "summary": "Get my orders",
+        "summary": "Get my orders (excluding cart)",
         "tags": [
           "orders"
         ]
@@ -291,6 +509,25 @@
       "post": {
         "operationId": "OrdersController_createTestOrder",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "productId": {
+                    "type": "number",
+                    "example": 1
+                  }
+                },
+                "required": [
+                  "productId"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Test order created"
@@ -1828,6 +2065,14 @@
         ]
       },
       "UpdateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AddToCartDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateOrderDto": {
         "type": "object",
         "properties": {}
       },
