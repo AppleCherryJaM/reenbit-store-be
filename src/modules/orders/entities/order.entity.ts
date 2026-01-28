@@ -10,8 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/user.entity';
 import { OrderItem } from './order-item.entity';
-import { OrderStatus } from '../types/order.types';
-import { DeliveryType } from '../types/order.types';
+import { OrderStatus, DeliveryType, PaymentStatus } from '../types/order.types';
 
 @Entity('orders')
 export class Order {
@@ -42,6 +41,13 @@ export class Order {
   })
   deliveryType: DeliveryType;
 
+  @Column({
+    type: 'enum',
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  paymentStatus: PaymentStatus;
+
   @Column({ nullable: true })
   deliveryAddress?: string;
 
@@ -69,7 +75,18 @@ export class Order {
     method?: string;
     status?: string;
     transactionId?: string;
+    paymentIntentId?: string;
+    clientSecret?: string;
+    stripeCustomerId?: string;
+    paymentMethod?: string;
+    receiptUrl?: string;
   };
+
+  @Column({ nullable: true })
+  paymentIntentId?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  paidAt?: Date;
 
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
@@ -101,5 +118,61 @@ export class Order {
     return this.items.reduce((total, item) => {
       return total + (item.unitPrice * item.quantity);
     }, 0);
+  }
+
+  isPaid(): boolean {
+    return this.paymentStatus === PaymentStatus.PAID;
+  }
+
+  isPendingPayment(): boolean {
+    return this.paymentStatus === PaymentStatus.PENDING;
+  }
+
+  canBePaid(): boolean {
+    return (
+      this.status !== OrderStatus.CANCELLED &&
+      this.paymentStatus === PaymentStatus.PENDING &&
+      this.totalAmount > 0
+    );
+  }
+
+  updatePaymentInfo(paymentData: {
+    paymentIntentId: string;
+    clientSecret?: string;
+    stripeCustomerId?: string;
+    paymentMethod?: string;
+    receiptUrl?: string;
+  }): void {
+    this.paymentIntentId = paymentData.paymentIntentId;
+    this.paymentInfo = {
+      ...this.paymentInfo,
+      paymentIntentId: paymentData.paymentIntentId,
+      clientSecret: paymentData.clientSecret,
+      stripeCustomerId: paymentData.stripeCustomerId,
+      paymentMethod: paymentData.paymentMethod,
+      receiptUrl: paymentData.receiptUrl,
+      method: 'stripe',
+      status: 'pending',
+    };
+  }
+
+  markAsPaid(receiptUrl?: string): void {
+    this.paymentStatus = PaymentStatus.PAID;
+    this.paidAt = new Date();
+    
+    if (this.paymentInfo) {
+      this.paymentInfo.status = 'paid';
+      if (receiptUrl) {
+        this.paymentInfo.receiptUrl = receiptUrl;
+      }
+    }
+  }
+
+  markAsCancelled(): void {
+    this.paymentStatus = PaymentStatus.CANCELLED;
+    
+    if (this.paymentInfo) {
+      this.paymentInfo.status = 'cancelled';
+    }
   }
 }

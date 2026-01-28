@@ -505,6 +505,40 @@
         ]
       }
     },
+    "/orders/guest-checkout": {
+      "post": {
+        "operationId": "OrdersController_guestCheckout",
+        "parameters": [
+          {
+            "name": "x-guest-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGuestOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create order as guest",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/orders/test": {
       "post": {
         "operationId": "OrdersController_createTestOrder",
@@ -541,6 +575,186 @@
         "summary": "Create test order (for development)",
         "tags": [
           "orders"
+        ]
+      }
+    },
+    "/stripe/create-payment-intent": {
+      "post": {
+        "description": "Creates a payment intent for processing card payments",
+        "operationId": "StripeController_createPaymentIntent",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentIntentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment intent created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "clientSecret": "pi_xxx_secret_xxx",
+                    "paymentIntentId": "pi_xxx",
+                    "amount": 5000,
+                    "currency": "usd",
+                    "status": "requires_payment_method"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create Stripe Payment Intent",
+        "tags": [
+          "stripe"
+        ]
+      }
+    },
+    "/stripe/payment-intent/{id}": {
+      "get": {
+        "description": "Retrieve the current status of a payment intent",
+        "operationId": "StripeController_getPaymentIntent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment intent details"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get Payment Intent status",
+        "tags": [
+          "stripe"
+        ]
+      }
+    },
+    "/stripe/verify-payment/{id}": {
+      "post": {
+        "description": "Verify if payment was successful on Stripe side",
+        "operationId": "StripeController_verifyPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Verify Payment",
+        "tags": [
+          "stripe"
+        ]
+      }
+    },
+    "/stripe/confirm-payment/{id}": {
+      "post": {
+        "description": "Manually confirm a payment intent on server side",
+        "operationId": "StripeController_confirmPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Confirm Payment on Server",
+        "tags": [
+          "stripe"
+        ]
+      }
+    },
+    "/stripe/cancel-payment/{id}": {
+      "post": {
+        "description": "Cancel a payment intent before it is captured",
+        "operationId": "StripeController_cancelPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Cancel Payment Intent",
+        "tags": [
+          "stripe"
+        ]
+      }
+    },
+    "/stripe/config": {
+      "get": {
+        "description": "Returns public Stripe configuration for frontend",
+        "operationId": "StripeController_getConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get Stripe public configuration",
+        "tags": [
+          "stripe"
         ]
       }
     },
@@ -2031,6 +2245,10 @@
             "type": "string",
             "example": "customer"
           },
+          "isVerified": {
+            "type": "boolean",
+            "example": true
+          },
           "avatarUrl": {
             "type": "string",
             "example": "https://example.com/avatar.jpg"
@@ -2059,6 +2277,7 @@
           "email",
           "name",
           "role",
+          "isVerified",
           "isActive",
           "createdAt",
           "updatedAt"
@@ -2075,6 +2294,137 @@
       "CreateOrderDto": {
         "type": "object",
         "properties": {}
+      },
+      "GuestOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "number",
+            "description": "Product ID",
+            "example": 1
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantity",
+            "example": 2,
+            "minimum": 1
+          },
+          "unitPrice": {
+            "type": "number",
+            "description": "Unit price in USD",
+            "example": 19.99,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "productId",
+          "quantity",
+          "unitPrice"
+        ]
+      },
+      "CreateGuestOrderDto": {
+        "type": "object",
+        "properties": {
+          "deliveryType": {
+            "type": "string",
+            "description": "Delivery type",
+            "enum": [
+              "pickup",
+              "delivery",
+              "express"
+            ],
+            "example": "delivery"
+          },
+          "deliveryAddress": {
+            "type": "string",
+            "description": "Delivery address",
+            "example": "123 Main St, New York, NY 10001"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Customer full name",
+            "example": "John Doe"
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Customer email",
+            "example": "john.doe@example.com"
+          },
+          "customerPhone": {
+            "type": "string",
+            "description": "Customer phone number",
+            "example": "+1234567890"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes",
+            "example": "Please deliver after 5 PM"
+          },
+          "items": {
+            "description": "Order items",
+            "example": [
+              {
+                "productId": 1,
+                "quantity": 2,
+                "unitPrice": 19.99
+              },
+              {
+                "productId": 3,
+                "quantity": 1,
+                "unitPrice": 49.99
+              }
+            ],
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuestOrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "deliveryType",
+          "customerName",
+          "customerEmail",
+          "items"
+        ]
+      },
+      "CreatePaymentIntentDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "number",
+            "description": "Order ID",
+            "example": 123
+          },
+          "orderNumber": {
+            "type": "string",
+            "description": "Order number",
+            "example": "ORD-2024-001"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in cents (e.g., 5000 = $50.00)",
+            "example": 5000,
+            "minimum": 50
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code",
+            "example": "usd",
+            "default": "usd"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional metadata",
+            "example": {
+              "customField": "value"
+            }
+          }
+        },
+        "required": [
+          "orderId",
+          "orderNumber",
+          "amount"
+        ]
       },
       "Category": {
         "type": "object",
@@ -2135,6 +2485,10 @@
             "type": "string",
             "example": "customer"
           },
+          "isVerified": {
+            "type": "boolean",
+            "example": true
+          },
           "avatarUrl": {
             "type": "string",
             "example": "https://example.com/avatar.jpg"
@@ -2144,7 +2498,8 @@
           "id",
           "email",
           "name",
-          "role"
+          "role",
+          "isVerified"
         ]
       },
       "AuthResponse": {

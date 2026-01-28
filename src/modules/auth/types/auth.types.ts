@@ -13,6 +13,9 @@ export class BaseUserResponse {
   @ApiProperty({ example: 'customer' })
   role: string;
 
+  @ApiProperty({ example: true })
+  isVerified: boolean;
+
   @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
   avatarUrl?: string;
 }
@@ -43,6 +46,9 @@ export class JwtPayload {
 
   @ApiProperty()
   role: string;
+
+  @ApiProperty()
+  isVerified: boolean;
 }
 
 export class JwtDecodedPayload extends JwtPayload {

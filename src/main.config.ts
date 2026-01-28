@@ -36,12 +36,29 @@ export const getCorsConfig = () => {
     );
   }
 
+  // Если в production не указаны origins, разрешаем все (только для тестирования)
+  if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+    console.warn('No CORS origins specified in production, allowing all');
+    return {
+      origin: true, // Разрешаем все в production для тестирования
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Guest-Token'], // Добавили
+    };
+  }
+
   return {
     origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
-    exposedHeaders: ['Authorization'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Accept', 
+      'X-Requested-With',
+      'X-Guest-Token' // Добавили здесь
+    ],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400,
   };
 };
