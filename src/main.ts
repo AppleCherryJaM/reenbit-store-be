@@ -11,7 +11,7 @@ import { raw } from 'express';
 async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, {
-    snapshot: true, 
+    snapshot: process.env.NODE_ENV !== 'production', 
     rawBody: true,
     logger: process.env.NODE_ENV === 'production' 
       ? ['error', 'warn', 'log'] 

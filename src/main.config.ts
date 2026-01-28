@@ -1,4 +1,4 @@
-export const port = parseInt(process.env.PORT || '5002', 10);
+export const port = Number(process.env.PORT) || 5002;
 
 export const getCorsConfig = () => {
   const allowedOrigins: string[] = [];
