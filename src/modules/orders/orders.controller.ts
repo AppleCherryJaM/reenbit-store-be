@@ -10,6 +10,9 @@ import {
   UseGuards,
   Req,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
+  Headers,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
@@ -18,6 +21,7 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dtos/create-order.dto';
 import { AddToCartDto } from './dtos/add-to-cart.dto';
 import { Order } from './entities/order.entity';
+import { CreateGuestOrderDto } from './dtos/create-guest-order.dto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -32,8 +36,6 @@ interface AuthenticatedRequest extends Request {
 @Controller('orders')
 export class OrdersController {
   constructor(private ordersService: OrdersService) {}
-
-  // ==================== КОРЗИНА ====================
 
   @Get('cart')
   @UseGuards(JwtAuthGuard)
@@ -138,8 +140,6 @@ export class OrdersController {
     return this.ordersService.checkoutCart(userId, deliveryInfo);
   }
 
-  // ==================== ЗАКАЗЫ ====================
-
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -179,7 +179,16 @@ export class OrdersController {
     return this.ordersService.findOrderById(id, userId);
   }
 
-  // ==================== ДЕВЕЛОПЕРСКИЕ МЕТОДЫ ====================
+  @Post('guest-checkout')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create order as guest' })
+  @ApiBody({ type: CreateGuestOrderDto })
+  async guestCheckout(
+    @Body() createGuestOrderDto: CreateGuestOrderDto,
+    @Headers('x-guest-token') guestToken: string
+  ) {
+    return this.ordersService.createGuestOrder(createGuestOrderDto, guestToken);
+  }
 
   @Post('test')
   @UseGuards(JwtAuthGuard)

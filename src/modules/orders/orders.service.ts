@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, DataSource, Not } from "typeorm";
@@ -5,7 +9,9 @@ import { Product } from "../products/entities/product.entity";
 import { CreateOrderDto } from "./dtos/create-order.dto";
 import { OrderItem } from "./entities/order-item.entity";
 import { Order } from "./entities/order.entity";
-import { OrderStatus, DeliveryType } from "./types/order.types";
+import { OrderStatus, DeliveryType, PaymentStatus } from "./types/order.types";
+import { StripeService } from "../stripe/stripe.service";
+import { CreateGuestOrderDto } from "./dtos/create-guest-order.dto";
 
 @Injectable()
 export class OrdersService {
@@ -20,6 +26,8 @@ export class OrdersService {
     private productRepository: Repository<Product>,
     
     private dataSource: DataSource,
+    
+    private stripeService: StripeService,
   ) {}
 
   async getCart(userId: number): Promise<Order> {
@@ -36,6 +44,8 @@ export class OrdersService {
         this.orderRepository.create({
           user: { id: userId },
           status: OrderStatus.CART,
+          paymentStatus: PaymentStatus.PENDING,
+          deliveryType: DeliveryType.PICKUP,
           totalAmount: 0,
           items: [],
         })
@@ -153,7 +163,10 @@ export class OrdersService {
     return this.orderRepository.save(cart);
   }
 
-  async checkoutCart(userId: number, deliveryInfo: Partial<CreateOrderDto>): Promise<Order> {
+  async checkoutCart(userId: number, deliveryInfo: Partial<CreateOrderDto>): Promise<{
+    order: Order;
+    paymentIntent: any;
+  }> {
     const cart = await this.getCart(userId);
 
     if (cart.items.length === 0) {
@@ -171,6 +184,7 @@ export class OrdersService {
 
     cart.status = OrderStatus.PENDING;
     cart.orderNumber = this.generateOrderNumber();
+    cart.paymentStatus = PaymentStatus.PENDING;
     
     if (deliveryInfo.deliveryType) {
       cart.deliveryType = deliveryInfo.deliveryType;
@@ -180,10 +194,43 @@ export class OrdersService {
       cart.deliveryAddress = deliveryInfo.deliveryAddress;
     }
 
-    return this.orderRepository.save(cart);
+    const order = await this.orderRepository.save(cart);
+
+    const customerEmail = order.customerEmail || (order.user ? order.user.email : undefined);
+
+    if (!order.orderNumber) {
+      throw new BadRequestException('Order number is required');
+    }
+
+    const paymentIntent = await this.stripeService.createPaymentIntent({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      amount: Math.round(order.totalAmount * 100),
+      currency: 'usd',
+      customerEmail: customerEmail,
+      metadata: {
+        orderId: order.id.toString(),
+        userId: userId.toString(),
+      },
+    });
+
+    if (!paymentIntent || !paymentIntent.paymentIntentId) {
+      throw new BadRequestException('Failed to create payment intent');
+    }
+
+    order.paymentIntentId = paymentIntent.paymentIntentId;
+    await this.orderRepository.save(order);
+
+    return {
+      order,
+      paymentIntent,
+    };
   }
 
-  async createOrder(userId: number, dto: CreateOrderDto): Promise<Order> {
+  async createOrder(userId: number, dto: CreateOrderDto): Promise<{
+    order: Order;
+    paymentIntent?: any;
+  }> {
     const { items } = dto;
 
     const productIds = items.map(item => item.productId);
@@ -217,11 +264,12 @@ export class OrdersService {
       validatedItems.push({ product, quantity: item.quantity });
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const orderData = await this.dataSource.transaction(async (manager) => {
       const order = manager.create(Order, {
         user: { id: userId },
         status: OrderStatus.PENDING,
-        orderNumber: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        paymentStatus: PaymentStatus.PENDING,
+        orderNumber: this.generateOrderNumber(),
         deliveryType: dto.deliveryType,
         deliveryAddress: dto.deliveryAddress,
         totalAmount,
@@ -249,7 +297,41 @@ export class OrdersService {
 
       return savedOrder;
     });
+
+    if (totalAmount > 0 && orderData.orderNumber) {
+      try {
+        const paymentIntent = await this.stripeService.createPaymentIntent({
+          orderId: orderData.id,
+          orderNumber: orderData.orderNumber,
+          amount: Math.round(totalAmount * 100),
+          currency: 'usd',
+          customerEmail: orderData.user?.email,
+          metadata: {
+            orderId: orderData.id.toString(),
+            userId: userId.toString(),
+          },
+        });
+
+        orderData.paymentIntentId = paymentIntent.paymentIntentId;
+        await this.orderRepository.save(orderData);
+
+        return {
+          order: orderData,
+          paymentIntent,
+        };
+      } catch (error) {
+        console.warn('Stripe payment intent creation failed:', error);
+        return {
+          order: orderData,
+        };
+      }
+    }
+
+    return {
+      order: orderData,
+    };
   }
+
 
   async getUserOrders(userId: number): Promise<Order[]> {
     return this.orderRepository.find({
@@ -289,6 +371,112 @@ export class OrdersService {
     return order;
   }
 
+  async processSuccessfulPayment(orderId: number, paymentIntentId: string): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['items', 'items.product'],
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    if (order.paymentIntentId !== paymentIntentId) {
+      throw new BadRequestException('Payment intent ID mismatch');
+    }
+
+    const paymentResult = await this.stripeService.verifyPayment(paymentIntentId);
+    
+    if (!paymentResult.valid) {
+      throw new BadRequestException(`Payment verification failed. Status: ${paymentResult.status}`);
+    }
+
+    const orderAmountInCents = Math.round(order.totalAmount * 100);
+    if (paymentResult.amount !== orderAmountInCents) {
+      throw new BadRequestException(`Payment amount mismatch. Expected: ${orderAmountInCents}, Got: ${paymentResult.amount}`);
+    }
+
+    order.status = OrderStatus.PROCESSING; 
+    order.paymentStatus = PaymentStatus.PAID;
+    order.paidAt = new Date();
+    order.paymentIntentId = paymentIntentId;
+
+    return this.orderRepository.save(order);
+  }
+
+  async cancelOrderPayment(orderId: number): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    if (order.paymentIntentId) {
+      try {
+        await this.stripeService.cancelPaymentIntent(order.paymentIntentId);
+      } catch (error) {
+        console.warn('Failed to cancel Stripe payment intent:', error);
+      }
+    }
+
+    if (order.items && order.items.length > 0) {
+      for (const item of order.items) {
+        const product = await this.productRepository.findOneBy({ id: item.product.id });
+        if (product) {
+          product.stock += item.quantity;
+          await this.productRepository.save(product);
+        }
+      }
+    }
+
+    order.status = OrderStatus.CANCELLED;
+    order.paymentStatus = PaymentStatus.CANCELLED;
+    
+    return this.orderRepository.save(order);
+  }
+
+  async getOrderPaymentInfo(orderId: number, userId?: number): Promise<{
+    order: Order;
+    paymentIntent?: {
+      id: string;
+      status: string;
+      amount: number;
+      currency: string;
+      metadata: any;
+      succeeded: boolean;
+    };
+    stripeConfig: any;
+  }> {
+    const order = await this.findOrderById(orderId, userId);
+
+    let paymentIntent: {
+      id: string;
+      status: string;
+      amount: number;
+      currency: string;
+      metadata: any;
+      succeeded: boolean;
+    } | undefined = undefined;
+    
+    if (order.paymentIntentId) {
+      try {
+        paymentIntent = await this.stripeService.retrievePaymentIntent(order.paymentIntentId);
+      } catch (error) {
+        console.warn('Failed to retrieve payment intent:', error);
+      }
+    }
+
+    const stripeConfig = this.stripeService.getPublicConfig();
+
+    return {
+      order,
+      paymentIntent,
+      stripeConfig,
+    };
+  }
+
   async createTestOrder(userId: number, productId: number): Promise<Order> {
     const product = await this.productRepository.findOneBy({ id: productId });
     
@@ -296,17 +484,20 @@ export class OrdersService {
       throw new NotFoundException(`Product with ID ${productId} not found`);
     }
 
-    return this.createOrder(userId, {
+    const result = await this.createOrder(userId, {
       items: [{ productId, quantity: 1 }],
       deliveryType: DeliveryType.PICKUP,
       deliveryAddress: 'Test address',
     });
+
+    return result.order;
   }
 
   private generateOrderNumber(): string {
-    return `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    return `ORD-${timestamp}-${random}`;
   }
-
 
   async cleanupOldCarts(days: number = 30): Promise<number> {
     const cutoffDate = new Date();
@@ -315,8 +506,7 @@ export class OrdersService {
     const oldCarts = await this.orderRepository.find({
       where: { 
         status: OrderStatus.CART,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        createdAt: { $lt: cutoffDate } as any
+        createdAt: Not(cutoffDate) as any,
       },
       relations: ['items'],
     });
@@ -354,13 +544,79 @@ export class OrdersService {
 
     return !!order;
   }
-  // async getOrderStatuses(): Promise<typeof OrderStatus> {
-  //   const res = await OrderStatus
-  //   return OrderStatus;
-  // }
 
-  // async getDeliveryTypes(): Promise<typeof DeliveryType> {
-  //   const res = await DeliveryType
-  //   return DeliveryType;
-  // }
+  async createGuestOrder(dto: CreateGuestOrderDto, guestToken: string): Promise<{
+    order: Order;
+    paymentIntent?: any;
+  }> {
+    if (!guestToken || !guestToken.startsWith('guest_')) {
+      throw new BadRequestException('Invalid guest token');
+    }
+
+    // Проверяем товары
+    const productIds = dto.items.map(item => item.productId);
+    const products = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.id IN (:...ids)', { ids: productIds })
+      .getMany();
+
+    if (products.length === 0) {
+      throw new BadRequestException('No products found');
+    }
+
+    // Создаем заказ
+    const order = await this.orderRepository.save(
+      this.orderRepository.create({
+        guestId: guestToken,
+        status: OrderStatus.PENDING,
+        paymentStatus: PaymentStatus.PENDING,
+        orderNumber: this.generateOrderNumber(),
+        deliveryType: dto.deliveryType,
+        deliveryAddress: dto.deliveryAddress,
+        customerName: dto.customerName,
+        customerEmail: dto.customerEmail,
+        customerPhone: dto.customerPhone,
+        notes: dto.notes,
+        totalAmount: dto.items.reduce((sum, item) => {
+          const product = products.find(p => p.id === item.productId);
+          return sum + (product?.price || item.unitPrice) * item.quantity;
+        }, 0),
+      })
+    );
+
+    // Создаем payment intent
+    if (order.totalAmount > 0) {
+      try {
+        const orderNumber = order.orderNumber ? order.orderNumber : null;
+        const paymentIntent = await this.stripeService.createPaymentIntent({
+          orderId: order.id,
+          orderNumber: orderNumber,
+          amount: Math.round(order.totalAmount * 100),
+          currency: 'usd',
+          customerEmail: order.customerEmail,
+          metadata: {
+            orderId: order.id.toString(),
+            guestToken,
+          },
+        });
+
+        order.paymentIntentId = paymentIntent.paymentIntentId;
+        await this.orderRepository.save(order);
+
+        return {
+          order,
+          paymentIntent,
+        };
+      } catch (error) {
+        console.warn('Payment intent creation failed:', error);
+        return {
+          order,
+        };
+      }
+    }
+
+    return {
+      order,
+    };
+  }
 }

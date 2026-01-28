@@ -17,6 +17,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ProductSuggestionsModule } from './modules/product-suggestions/product-suggestions.module';
 import { CategorySuggestionsController } from './modules/product-suggestions/category-suggestions.controller';
+import { StripeModule } from './modules/stripe/stripe.module';
 
 @Module({
   imports: [
@@ -67,7 +68,8 @@ import { CategorySuggestionsController } from './modules/product-suggestions/cat
     MailModule,
     CommentsModule,
     OrdersModule,
-    ProductSuggestionsModule
+    ProductSuggestionsModule,
+    StripeModule
   ],
   controllers: [AppController, CategorySuggestionsController],
   providers: [AppService, MailService],

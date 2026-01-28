@@ -56,15 +56,19 @@ export class AuthService {
   }
 
   async validateUser(email: string, password: string): Promise<Omit<User, 'password'> | null> {
-    
     const user = await this.usersService.findByEmail(email);
     
-    if (!user || !user.isVerified) {
-      throw new UnauthorizedException('Email not verified');
+    if (!user) {
+      return null;
     }
+
     const isValid = await bcrypt.compare(password, user.password);
     
-    return isValid ? user as Omit<User, 'password'> : null;
+    if (!isValid) {
+      return null;
+    }
+
+    return user as Omit<User, 'password'>;
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
@@ -79,6 +83,7 @@ export class AuthService {
       sub: user.id,
       name: user.name,
       role: user.role,
+      isVerified: user.isVerified
     };
 
     const access_token = this.generateAccessToken(payload);
@@ -93,6 +98,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         avatarUrl: user.avatarUrl,
+        isVerified: user.isVerified
       },
     };
   }
@@ -118,9 +124,18 @@ export class AuthService {
         },
       );
 
-      await this.mailService.sendVerificationEmail(user.email, user.name, verificationToken);
-    } catch (error) {
-      this.logger.error('Failed to send verification email', error);
+      this.mailService.sendVerificationEmail(user.email, user.name, verificationToken)
+        .then(() => {
+          this.logger.log(`✅ Verification email queued for ${user.email}`);
+        })
+        .catch(error => {
+          this.logger.error(`❌ Failed to send verification email (async):`, error);
+          if (process.env.NODE_ENV !== 'production') {
+            this.logger.warn(`📧 Manual verification token for ${user.email}: ${verificationToken}`);
+          }
+        });
+    } catch (error: any) {
+      this.logger.error('❌ Failed to generate verification token:', error);
     }
 
     const result = user as Omit<User, 'password'>;
@@ -149,6 +164,7 @@ export class AuthService {
       sub: user.id,
       name: user.name,
       role: user.role,
+      isVerified: user.isVerified
     };
 
     const access_token = this.generateAccessToken(newPayload);
@@ -163,6 +179,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         avatarUrl: user.avatarUrl,
+        isVerified: user.isVerified
       },
     };
   }

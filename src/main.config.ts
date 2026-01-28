@@ -26,7 +26,7 @@ export const getCorsConfig = () => {
       origin: true, // Разрешаем все в production для тестирования
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Guest-Token'], // Добавили
     };
   }
 
@@ -51,7 +51,13 @@ export const getCorsConfig = () => {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Accept', 
+      'X-Requested-With',
+      'X-Guest-Token' // Добавили здесь
+    ],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],
     maxAge: 86400,
   };
