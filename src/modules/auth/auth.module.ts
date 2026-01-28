@@ -13,6 +13,7 @@ import { JwtRefreshStrategy } from '../../common/strategies/jwt-refresh.strategy
 import { jwtConstants } from '@/common/utils/jwt.constants';
 import { timeConverter } from '@/common/utils/utils';
 import { MailModule } from '../mail/mail.module';
+import { SendgridService } from './sendgrid/sendgrid.service';
 
 @Module({
   imports: [
@@ -35,10 +36,11 @@ import { MailModule } from '../mail/mail.module';
         };
       },
       inject: [ConfigService],
-    }),
+    }), 
+    // ResendModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, BlacklistService, JwtStrategy, JwtRefreshStrategy],
+  providers: [AuthService, BlacklistService, JwtStrategy, JwtRefreshStrategy, SendgridService],
   exports: [AuthService],
 })
 export class AuthModule {}

@@ -16,6 +16,7 @@ import { AuthResponse, JwtPayload } from './types/auth.types';
 import { BlacklistService } from './blacklist.service';
 import { MailService } from '../mail/mail.service';
 import { VerificationPayload } from './dto/verification-payload.dto';
+import { SendgridService } from './sendgrid/sendgrid.service';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +27,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly blacklistService: BlacklistService,
     private readonly mailService: MailService,
+    private readonly sendgridService: SendgridService,
+    // private readonly resendService: ResendService
   ) {}
 
   async verifyEmail(token: string): Promise<void> {
@@ -122,6 +125,12 @@ export class AuthService {
           secret: process.env.JWT_VERIFICATION_SECRET || 'verification_secret',
           expiresIn: '24h',
         },
+      );
+      
+      await this.sendgridService.sendVerificationEmail(
+        user.email, 
+        user.name, 
+        verificationToken
       );
 
       this.mailService.sendVerificationEmail(user.email, user.name, verificationToken)
