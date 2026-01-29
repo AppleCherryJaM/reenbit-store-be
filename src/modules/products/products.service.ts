@@ -197,6 +197,7 @@ export class ProductsService {
     availableRatings: number[];
   }> {
     const skip = (page - 1) * limit;
+    
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.brand', 'brand')
@@ -205,26 +206,31 @@ export class ProductsService {
     const finalBrandIds: number[] = [];
     if (brandId) finalBrandIds.push(brandId);
     if (brandIds && brandIds.length > 0) finalBrandIds.push(...brandIds);
+
+    const uniqueBrandIds = [...new Set(finalBrandIds)];
     
-    if (finalBrandIds.length > 0) {
-      if (finalBrandIds.length === 1) {
-        queryBuilder.andWhere('brand.id = :brandId', { brandId: finalBrandIds[0] });
-      } else {
-        queryBuilder.andWhere('brand.id IN (:...brandIds)', { brandIds: finalBrandIds });
-      }
+    if (uniqueBrandIds.length > 0) {
+      queryBuilder.andWhere('brand.id IN (:...brandIds)', { 
+        brandIds: uniqueBrandIds 
+      });
     }
 
     const finalCategoryIds: number[] = [];
     if (categoryId) finalCategoryIds.push(categoryId);
     if (categoryIds && categoryIds.length > 0) finalCategoryIds.push(...categoryIds);
+
+    const uniqueCategoryIds = [...new Set(finalCategoryIds)];
     
-    if (finalCategoryIds.length > 0) {
+    if (uniqueCategoryIds.length > 0) {
       if (includeChildren) {
         const allCategoryIds = new Set<number>();
-        for (const catId of finalCategoryIds) {
+        
+        for (const catId of uniqueCategoryIds) {
           try {
             const descendantIds = await this.categoriesService.getAllDescendantIds(catId);
             descendantIds.forEach(id => allCategoryIds.add(id));
+
+            allCategoryIds.add(catId);
           } catch (error) {
             this.logger.warn(`Failed to get descendant categories for ${catId}:`, error);
             allCategoryIds.add(catId);
@@ -232,21 +238,33 @@ export class ProductsService {
         }
         
         if (allCategoryIds.size > 0) {
-          queryBuilder.andWhere('categories.id IN (:...categoryIds)', { 
-            categoryIds: Array.from(allCategoryIds) 
-          });
+
+          queryBuilder
+            .innerJoin(
+              'product.categories', 
+              'filter_category',
+              'filter_category.id IN (:...categoryIds)'
+            )
+            .setParameter('categoryIds', Array.from(allCategoryIds));
         }
       } else {
-        queryBuilder.andWhere('categories.id IN (:...categoryIds)', { 
-          categoryIds: finalCategoryIds 
-        });
+
+        queryBuilder
+          .innerJoin(
+            'product.categories', 
+            'filter_category',
+            'filter_category.id IN (:...categoryIds)'
+          )
+          .setParameter('categoryIds', uniqueCategoryIds);
       }
     }
 
-    if (search) {
-      queryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:search)', {
-        search: `%${search}%`,
-      });
+    if (search && search.trim().length > 0) {
+      const searchTerm = `%${search.trim().toLowerCase()}%`;
+      queryBuilder.andWhere(
+        '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.description) LIKE LOWER(:search))',
+        { search: searchTerm }
+      );
     }
 
     if (minPrice !== undefined) {
@@ -258,14 +276,14 @@ export class ProductsService {
     }
 
     if (ratings && ratings.length > 0) {
-    const ratingConditions = ratings.map(rating => 
-      `ROUND(product.rating) = ${rating}`
-    ).join(' OR ');
-    
-    queryBuilder.andWhere(`(${ratingConditions})`);
-    
-    // To Do: For float ratings
-  }
+      const ratingConditions = ratings.map(rating => 
+        `ROUND(product.rating) = ${Math.round(rating)}`
+      ).join(' OR ');
+      
+      if (ratingConditions) {
+        queryBuilder.andWhere(`(${ratingConditions})`);
+      }
+    }
 
     switch (sortBy) {
       case 'price_asc':
@@ -277,17 +295,19 @@ export class ProductsService {
       case 'name_asc':
         queryBuilder.orderBy('product.name', 'ASC');
         break;
-      // case 'rating_asc':
-      //   queryBuilder.orderBy('product.rating', 'ASC');
-      //   break;
-      // case 'rating_desc':
-      //   queryBuilder.orderBy('product.rating', 'DESC');
-      //   break;
+      case 'rating_asc':
+        queryBuilder.orderBy('product.rating', 'ASC');
+        break;
+      case 'rating_desc':
+        queryBuilder.orderBy('product.rating', 'DESC');
+        break;
       case 'newest':
       default:
         queryBuilder.orderBy('product.createdAt', 'DESC');
         break;
     }
+
+    queryBuilder.distinct(true);
 
     const [products, total] = await queryBuilder
       .skip(skip)
@@ -297,64 +317,70 @@ export class ProductsService {
     const priceQueryBuilder = this.productRepository
       .createQueryBuilder('product')
       .select('MIN(product.price)', 'min')
-      .addSelect('MAX(product.price)', 'max');
+      .addSelect('MAX(product.price)', 'max')
+      .leftJoin('product.brand', 'brand');
 
-    if (finalBrandIds.length > 0) {
-      priceQueryBuilder.leftJoin('product.brand', 'brand');
-      
-      if (finalBrandIds.length === 1) {
-        priceQueryBuilder.andWhere('brand.id = :brandId', { brandId: finalBrandIds[0] });
-      } else {
-        priceQueryBuilder.andWhere('brand.id IN (:...brandIds)', { brandIds: finalBrandIds });
-      }
-
+    if (uniqueBrandIds.length > 0) {
+      priceQueryBuilder.andWhere('brand.id IN (:...brandIds)', { 
+        brandIds: uniqueBrandIds 
+      });
     }
 
-    if (finalCategoryIds.length > 0) {
-      priceQueryBuilder.leftJoin('product.categories', 'categories');
-      
+    if (uniqueCategoryIds.length > 0) {
       if (includeChildren) {
         const allCategoryIds = new Set<number>();
-        for (const catId of finalCategoryIds) {
+        
+        for (const catId of uniqueCategoryIds) {
           try {
             const descendantIds = await this.categoriesService.getAllDescendantIds(catId);
             descendantIds.forEach(id => allCategoryIds.add(id));
+            allCategoryIds.add(catId);
           } catch (error) {
-            this.logger.error(`Failed to get descendant categories for ${catId}: ${error}`)
+            this.logger.warn(`Failed to get descendant categories for ${catId}:`, error);
             allCategoryIds.add(catId);
           }
         }
         
         if (allCategoryIds.size > 0) {
-          priceQueryBuilder.andWhere('categories.id IN (:...categoryIds)', { 
-            categoryIds: Array.from(allCategoryIds) 
-          });
+          priceQueryBuilder
+            .innerJoin(
+              'product.categories', 
+              'filter_category',
+              'filter_category.id IN (:...categoryIds)'
+            )
+            .setParameter('categoryIds', Array.from(allCategoryIds));
         }
-
       } else {
-        priceQueryBuilder.andWhere('categories.id IN (:...categoryIds)', { 
-          categoryIds: finalCategoryIds 
-        });
+        priceQueryBuilder
+          .innerJoin(
+            'product.categories', 
+            'filter_category',
+            'filter_category.id IN (:...categoryIds)'
+          )
+          .setParameter('categoryIds', uniqueCategoryIds);
       }
     }
 
-    if (search) {
-      priceQueryBuilder.andWhere('LOWER(product.name) LIKE LOWER(:search)', {
-        search: `%${search}%`,
-      });
+    if (search && search.trim().length > 0) {
+      const searchTerm = `%${search.trim().toLowerCase()}%`;
+      priceQueryBuilder.andWhere(
+        '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.description) LIKE LOWER(:search))',
+        { search: searchTerm }
+      );
     }
 
     const priceStats = await priceQueryBuilder.getRawOne();
 
+    // === 10. Доступные рейтинги ===
     const ratingsQueryBuilder = this.productRepository
-    .createQueryBuilder('product')
-    .select('DISTINCT ROUND(product.rating)::int', 'rating')
-    .orderBy('rating', 'DESC');
+      .createQueryBuilder('product')
+      .select('DISTINCT ROUND(product.rating)::int', 'rating')
+      .orderBy('rating', 'DESC');
 
     const availableRatingsResult = await ratingsQueryBuilder.getRawMany();
     const availableRatings = availableRatingsResult
       .map(r => r.rating)
-      .filter(r => r !== null && r >= 0 && r <= 5)
+      .filter(r => r !== null && r >= 0 && r <= 5);
 
     return { 
       products, 
