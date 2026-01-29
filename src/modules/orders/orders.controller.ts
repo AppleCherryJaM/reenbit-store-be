@@ -190,6 +190,18 @@ export class OrdersController {
     return this.ordersService.createGuestOrder(createGuestOrderDto, guestToken);
   }
 
+  @Post('guest-order/:id/process-payment')
+  async processGuestOrderPayment(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body('paymentIntentId') paymentIntentId: string,
+    @Body('guestToken') guestToken: string,
+  ) {
+    console.log(`🎫 [CONTROLLER] Guest payment endpoint HIT! order=${orderId}, intent=${paymentIntentId}`);
+    console.log(`🎫 Guest token: ${guestToken}`);
+    
+    return this.ordersService.processGuestPayment(orderId, paymentIntentId, guestToken);
+  }
+
   @Post('test')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -216,5 +228,15 @@ export class OrdersController {
       result = {message: `Error: ${error}`, status: 500}
     }
     return result;
+  }
+
+  @Post(':id/process-payment')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  async processOrderPayment(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body('paymentIntentId') paymentIntentId: string,
+  ) {
+    return this.ordersService.processOrderPayment(orderId, paymentIntentId);
   }
 }

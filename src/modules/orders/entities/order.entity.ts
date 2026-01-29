@@ -27,6 +27,9 @@ export class Order {
   @Column({ nullable: true })
   guestId?: string;
 
+  @Column({ name: 'guest_token', nullable: true })
+  guestToken?: string;
+
   @Column({
     type: 'enum',
     enum: OrderStatus,

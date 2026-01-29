@@ -539,6 +539,29 @@
         ]
       }
     },
+    "/orders/guest-order/{id}/process-payment": {
+      "post": {
+        "operationId": "OrdersController_processGuestOrderPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/orders/test": {
       "post": {
         "operationId": "OrdersController_createTestOrder",
@@ -573,6 +596,34 @@
           }
         ],
         "summary": "Create test order (for development)",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/process-payment": {
+      "post": {
+        "operationId": "OrdersController_processOrderPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
         "tags": [
           "orders"
         ]
@@ -617,6 +668,46 @@
           }
         ],
         "summary": "Create Stripe Payment Intent",
+        "tags": [
+          "stripe"
+        ]
+      }
+    },
+    "/stripe/guest/create-payment-intent": {
+      "post": {
+        "description": "Creates a payment intent for guest checkout",
+        "operationId": "StripeController_createGuestPaymentIntent",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "Payment intent data with optional guestToken",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentIntentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Guest payment intent created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "clientSecret": "pi_xxx_secret_xxx",
+                    "paymentIntentId": "pi_xxx",
+                    "amount": 5000,
+                    "currency": "usd",
+                    "status": "requires_payment_method"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create Stripe Payment Intent for Guest",
         "tags": [
           "stripe"
         ]
@@ -677,6 +768,31 @@
           }
         ],
         "summary": "Verify Payment",
+        "tags": [
+          "stripe"
+        ]
+      }
+    },
+    "/stripe/guest/verify-payment/{id}": {
+      "post": {
+        "description": "Verify if payment was successful for guest checkout",
+        "operationId": "StripeController_verifyGuestPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Verify Payment for Guest",
         "tags": [
           "stripe"
         ]
@@ -2418,6 +2534,11 @@
             "example": {
               "customField": "value"
             }
+          },
+          "guestToken": {
+            "type": "string",
+            "description": "Guest token for guest checkout",
+            "example": "guest_1740774400000_abc123xyz"
           }
         },
         "required": [

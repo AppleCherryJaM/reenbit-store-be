@@ -67,18 +67,42 @@ export class OrdersService {
       throw new NotFoundException(`Product with ID ${productId} not found`);
     }
 
-    if (product.stock < quantity) {
-      throw new BadRequestException(
-        `Insufficient stock for "${product.name}". Available: ${product.stock}`
-      );
-    }
+    console.log('addToCart called:', {
+      userId,
+      productId,
+      requestedQuantity: quantity,
+      productStock: product.stock,
+      cartItemsCount: cart.items.length
+    });
 
-    const existingItem = cart.items.find(item => item.product.id === productId);
+    const existingItem = cart.items?.find(item => item.product.id === productId);
     
     if (existingItem) {
+      console.log('Existing item found:', {
+        currentQuantity: existingItem.quantity,
+        newQuantity: existingItem.quantity + quantity
+      });
+
+      if (product.stock < quantity) {
+        throw new BadRequestException(
+          `Insufficient stock for "${product.name}". Available: ${product.stock}`
+        );
+      }
+
       existingItem.quantity += quantity;
       await this.orderItemRepository.save(existingItem);
+
+      product.stock -= quantity;
+      await this.productRepository.save(product);
     } else {
+      console.log('No existing item, adding new item');
+
+      if (product.stock < quantity) {
+        throw new BadRequestException(
+          `Insufficient stock for "${product.name}". Available: ${product.stock}`
+        );
+      }
+
       const item = this.orderItemRepository.create({
         order: cart,
         product: product,
@@ -87,11 +111,15 @@ export class OrdersService {
       });
       
       await this.orderItemRepository.save(item);
-      cart.items.push(item);
-    }
 
-    product.stock -= quantity;
-    await this.productRepository.save(product);
+      if (!cart.items) {
+        cart.items = [];
+      }
+      cart.items.push(item);
+
+      product.stock -= quantity;
+      await this.productRepository.save(product);
+    }
 
     cart.totalAmount = cart.calculateTotal();
     return this.orderRepository.save(cart);
@@ -117,31 +145,65 @@ export class OrdersService {
     }
 
     const product = item.product;
-    const quantityDifference = quantity - item.quantity;
+    const quantityDifference = quantity - item.quantity;  
 
-    if (quantityDifference > 0 && product.stock < quantityDifference) {
-      throw new BadRequestException(
-        `Insufficient stock for "${product.name}". Available: ${product.stock}`
-      );
+    if (quantityDifference > 0) {
+
+      if (product.stock < quantityDifference) {
+        throw new BadRequestException(
+          `Insufficient stock for "${product.name}". Available: ${product.stock}`
+        );
+      }
+
+      product.stock -= quantityDifference;
+    } else if (quantityDifference < 0) {
+
+      product.stock += Math.abs(quantityDifference);
     }
 
     if (quantity === 0) {
+
+      product.stock += item.quantity;
+      await this.productRepository.save(product);
+      
       await this.orderItemRepository.remove(item);
       cart.items = cart.items.filter(i => i.id !== itemId);
     } else {
+
       item.quantity = quantity;
       await this.orderItemRepository.save(item);
-    }
 
-    product.stock -= quantityDifference;
-    await this.productRepository.save(product);
+      await this.productRepository.save(product);
+    }
 
     cart.totalAmount = cart.calculateTotal();
     return this.orderRepository.save(cart);
   }
 
   async removeFromCart(userId: number, itemId: number): Promise<Order> {
-    return this.updateCartItem(userId, itemId, 0);
+    const cart = await this.getCart(userId);
+    const item = await this.orderItemRepository.findOne({
+      where: { id: itemId },
+      relations: ['order', 'product'],
+    });
+    
+    if (!item) {
+      throw new NotFoundException(`Cart item with ID ${itemId} not found`);
+    }
+
+    if (item.order.id !== cart.id) {
+      throw new ForbiddenException('You can only modify items in your own cart');
+    }
+
+    const product = item.product;
+    product.stock += item.quantity;
+    await this.productRepository.save(product);
+
+    await this.orderItemRepository.remove(item);
+    cart.items = cart.items.filter(i => i.id !== itemId);
+
+    cart.totalAmount = cart.calculateTotal();
+    return this.orderRepository.save(cart);
   }
 
   async clearCart(userId: number): Promise<Order> {
@@ -617,6 +679,75 @@ export class OrdersService {
 
     return {
       order,
+    };
+  }
+
+  async processOrderPayment(orderId: number, paymentIntentId: string) {
+    console.log(`💳 Processing payment for order ${orderId}, intent: ${paymentIntentId}`);
+    
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['items', 'items.product', 'user'],
+    });
+    
+    if (!order) {
+      throw new NotFoundException(`Order ${orderId} not found`);
+    }
+    
+    // Обновляем статусы
+    order.status = OrderStatus.PAID;
+    order.paymentStatus = PaymentStatus.PAID; // ← не забудьте
+    order.paymentIntentId = paymentIntentId;
+    order.paidAt = new Date();
+    
+    // Обновляем paymentInfo
+    if (!order.paymentInfo) {
+      order.paymentInfo = {};
+    }
+    order.paymentInfo.status = 'paid';
+    order.paymentInfo.paymentIntentId = paymentIntentId;
+    
+    await this.orderRepository.save(order);
+    
+    console.log(`✅ Order ${orderId} marked as paid for user ${order.user?.id || 'guest'}`);
+    
+    return {
+      success: true,
+      message: 'Payment processed successfully',
+      order,
+    };
+  }
+
+  async processGuestPayment(orderId: number, paymentIntentId: string, guestToken: string) {
+    console.log('🎫 processGuestPayment called with:', { orderId, paymentIntentId, guestToken });
+    
+    const order = await this.orderRepository
+      .createQueryBuilder('order')
+      .where('order.id = :orderId', { orderId })
+      .andWhere('order.guestId = :guestToken', { guestToken })
+      .leftJoinAndSelect('order.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .getOne();
+    
+    console.log('🎫 Found order:', order?.id);
+    
+    if (!order) {
+      throw new NotFoundException(`Order ${orderId} not found or invalid guest token`);
+    }
+
+    order.status = OrderStatus.PAID;
+    order.paymentStatus = PaymentStatus.PAID;
+    order.paymentIntentId = paymentIntentId;
+    order.paidAt = new Date();
+    
+    await this.orderRepository.save(order);
+    
+    return {
+      success: true,
+      message: 'Guest payment processed successfully',
+      order,
+      clearCart: true,
+      purchasedProductIds: order.items.map(item => item.product.id) 
     };
   }
 }
