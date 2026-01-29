@@ -6,6 +6,7 @@ export enum OrderStatus {
   DELIVERED = 'delivered',
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
+  PAID = 'paid',
 }
 
 export enum DeliveryType {

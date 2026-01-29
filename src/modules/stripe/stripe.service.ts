@@ -153,32 +153,42 @@ export class StripeService {
     }
   }
 
-  async verifyPayment(paymentIntentId: string): Promise<{
-    valid: boolean;
-    status: string;
-    amount: number;
-    orderId?: string;
-  }> {
-    this.ensureConfigured();
+	async verifyPayment(paymentIntentId: string): Promise<{
+		valid: boolean;
+		status: string;
+		amount: number;
+		orderId?: string;
+	}> {
+		this.ensureConfigured();
 
-    try {
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-      
-      return {
-        valid: paymentIntent.status === 'succeeded',
-        status: paymentIntent.status,
-        amount: paymentIntent.amount,
-        orderId: paymentIntent.metadata?.orderId,
-      };
-    } catch (error) {
-      this.logger.error('Payment verification failed:', error);
-      return {
-        valid: false,
-        status: 'error',
-        amount: 0,
-      };
-    }
-  }
+		try {
+			console.log(`🔍 Verifying payment intent: ${paymentIntentId}`);
+			
+			const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+			
+			console.log(`📊 Payment intent status: ${paymentIntent.status}`);
+			console.log(`💰 Amount: ${paymentIntent.amount}`);
+			console.log(`📝 Metadata:`, paymentIntent.metadata);
+			
+			const result = {
+				valid: paymentIntent.status === 'succeeded',
+				status: paymentIntent.status,
+				amount: paymentIntent.amount,
+				orderId: paymentIntent.metadata?.orderId,
+			};
+			
+			console.log('✅ Verification result:', result);
+			
+			return result;
+		} catch (error) {
+			console.error('❌ Payment verification failed:', error);
+			return {
+				valid: false,
+				status: 'error',
+				amount: 0,
+			};
+		}
+	}
 
   getPublicConfig() {
     const publishableKey = this.configService.get<string>('STRIPE_PUBLISHABLE_KEY');

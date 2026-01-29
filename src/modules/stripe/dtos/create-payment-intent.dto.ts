@@ -45,4 +45,13 @@ export class CreatePaymentIntentDto {
   })
   @IsOptional()
   metadata?: Record<string, string>;
+
+  @ApiProperty({
+    description: 'Guest token for guest checkout',
+    example: 'guest_1740774400000_abc123xyz',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  guestToken?: string;
 }

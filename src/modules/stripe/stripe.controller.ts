@@ -65,6 +65,44 @@ export class StripeController {
     });
   }
 
+  @Post('guest/create-payment-intent')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Create Stripe Payment Intent for Guest',
+    description: 'Creates a payment intent for guest checkout',
+  })
+  @ApiBody({ 
+    type: CreatePaymentIntentDto,
+    description: 'Payment intent data with optional guestToken'
+  })
+  @ApiOkResponse({
+    description: 'Guest payment intent created successfully',
+    schema: {
+      example: {
+        clientSecret: 'pi_xxx_secret_xxx',
+        paymentIntentId: 'pi_xxx',
+        amount: 5000,
+        currency: 'usd',
+        status: 'requires_payment_method',
+      },
+    },
+  })
+  async createGuestPaymentIntent(
+    @Body() createPaymentIntentDto: CreatePaymentIntentDto & { guestToken?: string },
+  ) {
+    const guestToken = createPaymentIntentDto.guestToken;
+    
+    return this.stripeService.createPaymentIntent({
+      ...createPaymentIntentDto,
+      customerEmail: createPaymentIntentDto.metadata?.customerEmail,
+      metadata: {
+        ...createPaymentIntentDto.metadata,
+        guestToken: guestToken || 'anonymous',
+        isGuest: 'true',
+      },
+    });
+  }
+
   @Get('payment-intent/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
@@ -100,6 +138,36 @@ export class StripeController {
       data: result,
     };
   }
+
+	@Post('guest/verify-payment/:id')
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({
+		summary: 'Verify Payment for Guest',
+		description: 'Verify if payment was successful for guest checkout',
+	})
+	async verifyGuestPayment(
+		@Param('id') paymentIntentId: string,
+		@Body('guestToken') guestToken?: string
+	) {
+		const result = await this.stripeService.verifyPayment(paymentIntentId);
+		
+		// Дополнительная проверка для гостей
+		if (guestToken && result.orderId) {
+			// Можно проверить что payment intent принадлежит этому гостю
+			// через metadata (там должен быть guestToken)
+		}
+		
+		if (!result.valid) {
+			throw new BadRequestException(`Payment not valid. Status: ${result.status}`);
+		}
+
+		// return {
+		// 	success: true,
+		// 	message: 'Payment verified successfully',
+		// 	data: result,
+		// };
+		return result;
+	}
 
   @Post('confirm-payment/:id')
   @UseGuards(JwtAuthGuard)
